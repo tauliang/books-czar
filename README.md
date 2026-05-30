@@ -30,7 +30,49 @@ You can also choose models from the app. Open Settings after LM Studio is
 running; Books Czar loads available model IDs from LM Studio and shows dropdowns
 for both the chat model and embedding model.
 
-## Run
+## Run With Docker Compose
+
+The fastest local setup is Docker Compose. Start LM Studio first, then run:
+
+```bash
+docker compose up --build
+```
+
+If your Docker installation uses the legacy command, this works too:
+
+```bash
+docker-compose up --build
+```
+
+Open `http://127.0.0.1:5173`. The API is available at
+`http://127.0.0.1:8000`.
+
+Docker Compose mounts your local `./books` folder into the backend container and
+stores SQLite metadata, chunks, and embeddings in the `books_czar_data` Docker
+volume. Put authorized `.epub`, `.pdf`, `.txt`, `.md`, or `.html` files in
+`./books`, then open Import and scan the folder from the app.
+
+When Books Czar runs in Docker, `127.0.0.1` inside the backend container is the
+container itself. The Compose setup points to LM Studio on the host machine with
+`http://host.docker.internal:1234/v1` by default. Override it when needed:
+
+```bash
+LMSTUDIO_BASE_URL=http://host.docker.internal:1234/v1 docker compose up --build
+```
+
+Stop the app:
+
+```bash
+docker compose down
+```
+
+Reset the Docker-managed index and metadata:
+
+```bash
+docker compose down -v
+```
+
+## Run Without Docker
 
 ```bash
 python3 -m venv .venv
@@ -52,7 +94,8 @@ Open `http://127.0.0.1:5173`.
 
 1. Start LM Studio and load a chat model plus an embedding model.
 2. Put your local `.epub`, `.pdf`, `.txt`, `.md`, or `.html` files under `./books`.
-3. Start the backend and frontend, then open `http://127.0.0.1:5173`.
+3. Start the app with Docker Compose or start the backend and frontend manually,
+   then open `http://127.0.0.1:5173`.
 4. Confirm the status pill says `LM Studio online`.
 
 ![Books Czar library screen](docs/images/01-library-empty.png)
@@ -133,6 +176,9 @@ JSON:
 
 Local files, SQLite metadata, chunks, and embeddings live under `./data` by default.
 Set `BOOKWISE_DATA_DIR` to move the library.
+
+With Docker Compose, the local `./books` folder is mounted at `/app/books` and
+application data is stored in the `books_czar_data` Docker volume.
 
 ## RAG Pattern
 
