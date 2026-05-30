@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
-import type { AppSettings, Book, ChatMessage, Health } from "./types";
+import type { AppSettings, Book, ChatMessage, Health, ModelCatalog } from "./types";
 
 type Panel = "library" | "import" | "settings";
 
@@ -33,9 +33,18 @@ const emptySettings: AppSettings = {
   chunk_overlap: 240
 };
 
+const emptyModelCatalog: ModelCatalog = {
+  ok: false,
+  message: "Models not loaded",
+  models: [],
+  chat_model: emptySettings.chat_model,
+  embedding_model: emptySettings.embedding_model
+};
+
 export default function App() {
   const [books, setBooks] = useState<Book[]>([]);
   const [health, setHealth] = useState<Health | null>(null);
+  const [modelCatalog, setModelCatalog] = useState<ModelCatalog>(emptyModelCatalog);
   const [settings, setSettings] = useState<AppSettings>(emptySettings);
   const [panel, setPanel] = useState<Panel>("library");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -52,6 +61,14 @@ export default function App() {
     () => books.filter((book) => selectedIds.includes(book.id)),
     [books, selectedIds]
   );
+  const chatModelChoices = useMemo(
+    () => withCurrentModel(["local-model", ...modelCatalog.models], settings.chat_model),
+    [modelCatalog.models, settings.chat_model]
+  );
+  const embeddingModelChoices = useMemo(
+    () => withCurrentModel(modelCatalog.models, settings.embedding_model),
+    [modelCatalog.models, settings.embedding_model]
+  );
   const indexedBooks = books.filter((book) => book.status === "indexed").length;
   const storedBooks = books.filter((book) => book.file_name).length;
 
@@ -61,14 +78,16 @@ export default function App() {
 
   async function refreshAll() {
     setError(null);
-    const [bookRows, healthRow, settingRow] = await Promise.all([
+    const [bookRows, healthRow, settingRow, modelRows] = await Promise.all([
       api.books(),
       api.health(),
-      api.settings()
+      api.settings(),
+      api.models()
     ]);
     setBooks(bookRows);
     setHealth(healthRow);
     setSettings(settingRow);
+    setModelCatalog(modelRows);
   }
 
   async function runTask(label: string, task: () => Promise<void>) {
@@ -367,19 +386,31 @@ export default function App() {
               </label>
               <label>
                 Chat model
-                <input
+                <select
                   value={settings.chat_model}
                   onChange={(event) => setSettings({ ...settings, chat_model: event.target.value })}
-                />
+                >
+                  {chatModelChoices.map((model) => (
+                    <option key={model} value={model}>
+                      {model === "local-model" ? "Auto-select chat model" : model}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label>
                 Embedding model
-                <input
+                <select
                   value={settings.embedding_model}
                   onChange={(event) =>
                     setSettings({ ...settings, embedding_model: event.target.value })
                   }
-                />
+                >
+                  {embeddingModelChoices.map((model) => (
+                    <option key={model} value={model}>
+                      {model}
+                    </option>
+                  ))}
+                </select>
               </label>
               <div className="formRow">
                 <label>
@@ -411,7 +442,11 @@ export default function App() {
                 <Settings size={17} />
                 Save Settings
               </button>
-              <div className="compactNote">{health?.lmstudio_message}</div>
+              <div className="compactNote">
+                {modelCatalog.ok
+                  ? `${modelCatalog.models.length} LM Studio model${modelCatalog.models.length === 1 ? "" : "s"} available`
+                  : modelCatalog.message || health?.lmstudio_message}
+              </div>
             </form>
           )}
         </section>
@@ -557,4 +592,9 @@ function parseDirectUrls(value: string): Array<{ title?: string; url: string }> 
       return { url: line };
     })
     .filter((item) => item.url.startsWith("http://") || item.url.startsWith("https://"));
+}
+
+function withCurrentModel(models: string[], current: string): string[] {
+  const ordered = current ? [current, ...models] : models;
+  return ordered.filter((model, index, all) => model && all.indexOf(model) === index);
 }

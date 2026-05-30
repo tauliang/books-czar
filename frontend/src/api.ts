@@ -1,4 +1,4 @@
-import type { AppSettings, Book, ChatResponse, Health } from "./types";
+import type { AppSettings, Book, ChatResponse, Health, ModelCatalog } from "./types";
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(path, {
@@ -24,6 +24,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 export const api = {
   health: () => request<Health>("/api/health"),
   settings: () => request<AppSettings>("/api/settings"),
+  models: () => request<ModelCatalog>("/api/models"),
   saveSettings: (settings: AppSettings) =>
     request<AppSettings>("/api/settings", { method: "PUT", body: JSON.stringify(settings) }),
   books: () => request<Book[]>("/api/books"),

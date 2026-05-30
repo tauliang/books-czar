@@ -18,6 +18,7 @@ from .schemas import (
     IndexResult,
     LocalScanResult,
     ManifestImportResult,
+    ModelListResponse,
 )
 from .storage import (
     answer_with_sources,
@@ -65,6 +66,28 @@ async def health() -> HealthResponse:
 @app.get("/api/settings", response_model=AppSettings)
 async def read_settings() -> AppSettings:
     return get_app_settings()
+
+
+@app.get("/api/models", response_model=ModelListResponse)
+async def read_models() -> ModelListResponse:
+    settings = get_app_settings()
+    try:
+        models = await LMStudioClient(settings).models()
+        return ModelListResponse(
+            ok=True,
+            message="LM Studio models loaded",
+            models=models,
+            chat_model=settings.chat_model,
+            embedding_model=settings.embedding_model,
+        )
+    except Exception as exc:  # noqa: BLE001 - keep settings usable when LM Studio is offline.
+        return ModelListResponse(
+            ok=False,
+            message=str(exc),
+            models=[],
+            chat_model=settings.chat_model,
+            embedding_model=settings.embedding_model,
+        )
 
 
 @app.put("/api/settings", response_model=AppSettings)

@@ -31,6 +31,14 @@ export interface Health {
   chunk_count: number;
 }
 
+export interface ModelCatalog {
+  ok: boolean;
+  message: string;
+  models: string[];
+  chat_model: string;
+  embedding_model: string;
+}
+
 export interface Source {
   book_id: string;
   title: string;

@@ -86,3 +86,11 @@ class HealthResponse(BaseModel):
     lmstudio_message: str
     book_count: int
     chunk_count: int
+
+
+class ModelListResponse(BaseModel):
+    ok: bool
+    message: str
+    models: list[str]
+    chat_model: str
+    embedding_model: str

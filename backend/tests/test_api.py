@@ -15,6 +15,9 @@ class FakeLMStudioClient:
     async def health(self) -> tuple[bool, str]:
         return True, "Fake LM Studio is reachable"
 
+    async def models(self) -> list[str]:
+        return ["text-embedding-test", "chat-test", "analysis-test"]
+
     async def embed_texts(self, texts: list[str]) -> list[list[float]]:
         embeddings: list[list[float]] = []
         for text in texts:
@@ -46,6 +49,21 @@ def test_health_endpoint_uses_configured_lmstudio_client(api_client, monkeypatch
     assert payload["ok"] is True
     assert payload["lmstudio_ok"] is True
     assert payload["lmstudio_message"] == "Fake LM Studio is reachable"
+
+
+def test_models_endpoint_returns_lmstudio_model_options(api_client, monkeypatch):
+    import backend.main as main
+
+    monkeypatch.setattr(main, "LMStudioClient", FakeLMStudioClient)
+
+    response = api_client.get("/api/models")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ok"] is True
+    assert payload["models"] == ["text-embedding-test", "chat-test", "analysis-test"]
+    assert payload["chat_model"] == "test-chat"
+    assert payload["embedding_model"] == "test-embedding"
 
 
 def test_scan_local_books_endpoint_registers_books_folder(api_client):

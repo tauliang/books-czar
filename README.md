@@ -26,6 +26,10 @@ Default LM Studio API settings:
 - Chat model: `local-model` auto-selects the first non-embedding model LM Studio exposes
 - Embeddings: `text-embedding-nomic-embed-text-v1.5`
 
+You can also choose models from the app. Open Settings after LM Studio is
+running; Books Czar loads available model IDs from LM Studio and shows dropdowns
+for both the chat model and embedding model.
+
 ## Run
 
 ```bash
@@ -85,6 +89,7 @@ JSON:
 
 ## API
 
+- `GET /api/models` lists available LM Studio model IDs for the Settings dropdowns.
 - `POST /api/books/upload` uploads local files.
 - `POST /api/books/manifest` queues a CSV/JSON title list.
 - `POST /api/books/download` downloads authorized direct file URLs.
