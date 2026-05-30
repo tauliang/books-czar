@@ -112,3 +112,17 @@ This application uses Retrieval-Augmented Generation:
 5. Embed the user question, retrieve the most similar chunks, and send only
    those excerpts as context to the local chat model.
 6. Return the model answer with source excerpts and similarity scores.
+
+## Tests
+
+Run unit and API tests:
+
+```bash
+./.venv/bin/python -m pytest
+```
+
+Run behavior-driven end-to-end tests:
+
+```bash
+./.venv/bin/behave tests
+```
