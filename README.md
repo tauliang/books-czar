@@ -124,6 +124,21 @@ sends those excerpts to the chat model, and shows cited source context.
 
 ![Chat answer with source excerpts](docs/images/06-chat-answer-with-sources.png)
 
+## Executive Synthesis
+
+Open Synthesis to generate a saved Board Brief across indexed books. The guided
+workflow asks for an objective, audience, and lens, then retrieves evidence
+across the selected indexed titles. If no books are selected, Books Czar uses all
+indexed titles.
+
+Synthesis briefs use the same local LM Studio chat and embedding settings as Ask
+the Czar. Generated briefs are saved locally in SQLite with their source
+excerpts, so you can reopen prior executive summaries. From the brief header,
+use `Export Word` to download a Microsoft Word `.docx` version for review,
+circulation, or board-prep notes.
+
+![Executive synthesis board brief](docs/images/07-synthesis-brief.png)
+
 ## Local Books Folder
 
 By default, Books Czar scans `./books` recursively. You can change that with
@@ -171,6 +186,11 @@ JSON:
 - `POST /api/books/download` downloads authorized direct file URLs.
 - `POST /api/index` embeds stored books into SQLite.
 - `POST /api/chat` performs retrieval and asks LM Studio for an answer.
+- `POST /api/syntheses` generates and saves a multi-book executive synthesis.
+- `GET /api/syntheses` lists saved synthesis runs.
+- `GET /api/syntheses/{id}` returns one saved synthesis run.
+- `GET /api/syntheses/{id}/word` exports a saved synthesis run as a Word `.docx`.
+- `DELETE /api/syntheses/{id}` removes one saved synthesis run.
 
 ## Data
 
@@ -192,6 +212,10 @@ This application uses Retrieval-Augmented Generation:
    those excerpts as context to the local chat model.
 6. Return the model answer with source excerpts and similarity scores.
 
+The Synthesis workflow uses the same indexed chunks but runs several retrieval
+questions across the selected books, deduplicates repeated passages, and asks the
+local chat model for a structured, citation-backed Board Brief.
+
 ## Tests
 
 Run unit and API tests:
@@ -204,4 +228,11 @@ Run behavior-driven end-to-end tests:
 
 ```bash
 ./.venv/bin/behave tests
+```
+
+Run frontend brief parser tests:
+
+```bash
+cd frontend
+npm run test:brief
 ```

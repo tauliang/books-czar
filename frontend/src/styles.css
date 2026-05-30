@@ -210,6 +210,20 @@ button:disabled {
   gap: 8px;
 }
 
+.briefHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #315b52;
+}
+
+.briefExportButton {
+  min-height: 34px;
+  padding: 0 11px;
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+
 .primaryButton {
   min-width: 92px;
   padding: 0 13px;
@@ -371,7 +385,8 @@ button:disabled {
 }
 
 .importGrid,
-.settingsForm {
+.settingsForm,
+.synthesisGrid {
   display: grid;
   gap: 14px;
   padding: 16px;
@@ -403,6 +418,98 @@ button:disabled {
 .toolPanelHeader h3 {
   margin: 0;
   font-size: 1rem;
+}
+
+.synthesisForm,
+.historyPanel {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #e1dace;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.synthesisForm label {
+  display: grid;
+  gap: 7px;
+  color: #4a4b45;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.scopeSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 38px;
+  padding: 9px 11px;
+  border: 1px solid #ddd8cc;
+  border-radius: 8px;
+  color: #716d63;
+  background: #fbfaf6;
+}
+
+.scopeSummary strong {
+  color: #232521;
+}
+
+.synthesisHistory {
+  display: grid;
+  gap: 10px;
+}
+
+.synthesisRun {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px;
+  gap: 9px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #e1dace;
+  border-radius: 8px;
+  background: #fbfaf6;
+}
+
+.synthesisRun.active {
+  border-color: #8fb8ad;
+  box-shadow: inset 3px 0 0 #4b8175;
+}
+
+.synthesisRun > button:first-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+}
+
+.synthesisRun strong {
+  overflow: hidden;
+  color: #181a17;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.synthesisRun span {
+  overflow: hidden;
+  color: #716d63;
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compactEmpty {
+  display: grid;
+  min-height: 92px;
+  place-items: center;
+  color: #716d63;
+  border: 1px dashed #d7d0c1;
+  border-radius: 8px;
+  background: #fbfaf6;
 }
 
 .toolPanel input[type="file"] {
@@ -458,6 +565,231 @@ textarea:focus {
   gap: 12px;
   overflow: auto;
   padding: 16px;
+}
+
+.briefStack {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  overflow: auto;
+  padding: 16px;
+}
+
+.buildingBrief {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #bedbc5;
+  border-radius: 8px;
+  color: #245d3b;
+  background: #edf7ee;
+}
+
+.buildingBriefTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.buildSteps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.buildSteps span {
+  min-height: 30px;
+  padding: 6px 8px;
+  border: 1px solid #bedbc5;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.56);
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.briefGlance {
+  display: grid;
+  gap: 11px;
+  padding: 13px;
+  border: 1px solid #d4cbbb;
+  border-radius: 8px;
+  background: #fffefa;
+}
+
+.briefGlance.error {
+  border-color: #edc8bd;
+  background: #fff6f2;
+}
+
+.briefGlance > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.briefGlance span {
+  color: #716d63;
+  font-size: 0.82rem;
+}
+
+.briefGlance strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #181a17;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.briefGlanceChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.briefGlanceChips span {
+  min-height: 28px;
+  padding: 5px 9px;
+  border: 1px solid #ddd8cc;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.briefArtifact {
+  display: grid;
+  gap: 15px;
+  padding: 18px;
+  border: 1px solid #e1dace;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.briefArtifactHeader {
+  display: grid;
+  gap: 3px;
+}
+
+.briefArtifactHeader span,
+.takeawayCallout span {
+  color: #716d63;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.briefArtifactHeader h2,
+.briefSection h3,
+.briefCompactSection h3,
+.takeawayCallout p {
+  margin: 0;
+}
+
+.briefArtifactHeader h2 {
+  color: #181a17;
+  font-size: 1.12rem;
+}
+
+.takeawayCallout {
+  display: grid;
+  gap: 8px;
+  padding: 13px;
+  border: 1px solid #bedbc5;
+  border-radius: 8px;
+  background: #edf7ee;
+}
+
+.takeawayCallout p {
+  color: #3f423c;
+  font-size: 1rem;
+  line-height: 1.58;
+}
+
+.briefFocusGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.briefCompactSection,
+.briefSection {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid #e6e0d6;
+}
+
+.briefCompactSection {
+  padding: 12px;
+  border: 1px solid #e1dace;
+  border-radius: 8px;
+  background: #fbfaf6;
+}
+
+.briefCompactSection h3,
+.briefSection h3 {
+  color: #181a17;
+  font-size: 0.98rem;
+}
+
+.briefCompactSection p,
+.briefSection p {
+  margin: 0;
+  color: #3f423c;
+  line-height: 1.52;
+}
+
+.briefCompactSection p {
+  padding: 7px 0;
+  border-top: 1px solid #e6e0d6;
+}
+
+.briefCompactSection p:first-child {
+  border-top: 0;
+}
+
+.briefCompactSection .actionMilestone {
+  color: #315b52;
+  font-weight: 700;
+  border-top: 0;
+  padding-bottom: 2px;
+}
+
+.briefSection.subtle {
+  color: #716d63;
+}
+
+.briefBullet {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 8px;
+  padding-left: 2px;
+}
+
+.briefBullet span {
+  color: #4b8175;
+}
+
+.briefBreak {
+  height: 4px;
+}
+
+.briefSources {
+  margin-top: 0;
+  opacity: 0.9;
+}
+
+.sourceHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #716d63;
+  font-size: 0.82rem;
+}
+
+.sourceHeader strong {
+  color: #4a4b45;
+  font-size: 0.88rem;
 }
 
 .message {
@@ -557,6 +889,11 @@ textarea:focus {
   .chatPane {
     min-height: auto;
   }
+
+  .briefFocusGrid,
+  .buildSteps {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 @media (max-width: 640px) {
@@ -576,5 +913,10 @@ textarea:focus {
   .bookStats {
     grid-column: 2;
     justify-content: flex-start;
+  }
+
+  .briefFocusGrid,
+  .buildSteps {
+    grid-template-columns: 1fr;
   }
 }

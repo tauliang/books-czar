@@ -34,6 +34,15 @@ class FakeLMStudioClient:
     async def chat(self, system_prompt: str, user_prompt: str) -> str:
         self.__class__.last_system_prompt = system_prompt
         self.__class__.last_user_prompt = user_prompt
+        if "Board Brief" in system_prompt:
+            return (
+                "## Executive Takeaway\n"
+                "Leaders should use a private RAG library for faster strategy research [S1].\n\n"
+                "## Recommended 30/60/90 Day Actions\n"
+                "- 30 days: Identify indexed priority books [S1].\n\n"
+                "## Metrics to Watch\n"
+                "- Research cycle time [S1]."
+            )
         return "RAG answer based on retrieved local context [1]"
 
 
@@ -135,3 +144,81 @@ def test_settings_round_trip(api_client):
     assert response.status_code == 200
     assert response.json()["chat_model"] == "test-chat-model"
     assert api_client.get("/api/settings").json()["chunk_size"] == 1200
+
+
+def test_synthesis_requires_indexed_books(api_client):
+    response = api_client.post(
+        "/api/syntheses",
+        json={
+            "objective": "Summarize our AI operating model",
+            "audience": "c_suite",
+            "lens": "operating_model",
+            "book_ids": None,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Index one or more books before creating a synthesis."
+
+    runs = api_client.get("/api/syntheses").json()
+    assert runs[0]["status"] == "error"
+    assert runs[0]["error"] == "Index one or more books before creating a synthesis."
+
+
+def test_synthesis_api_creates_lists_reads_and_deletes_saved_brief(api_client, monkeypatch):
+    import backend.storage as storage
+
+    monkeypatch.setattr(storage, "LMStudioClient", FakeLMStudioClient)
+
+    upload = api_client.post(
+        "/api/books/upload",
+        files={
+            "files": (
+                "executive-strategy.txt",
+                b"Executive leaders need private RAG strategy research with careful source citations.",
+                "text/plain",
+            )
+        },
+    )
+    assert upload.status_code == 200
+    indexed = api_client.post("/api/index", json={"book_ids": None})
+    assert indexed.status_code == 200
+
+    created = api_client.post(
+        "/api/syntheses",
+        json={
+            "objective": "Synthesize the executive AI strategy implications",
+            "audience": "board",
+            "lens": "strategy",
+            "book_ids": None,
+        },
+    )
+
+    assert created.status_code == 200
+    payload = created.json()
+    assert payload["status"] == "complete"
+    assert "Executive Takeaway" in payload["markdown"]
+    assert payload["sources"]
+    assert payload["audience"] == "board"
+    assert "Return exactly these sections:" in FakeLMStudioClient.last_user_prompt
+    assert "one concise executive takeaway" in FakeLMStudioClient.last_user_prompt
+    assert "3-6 measurable executive indicators" in FakeLMStudioClient.last_user_prompt
+    assert "[S1]" in FakeLMStudioClient.last_user_prompt
+
+    listed = api_client.get("/api/syntheses")
+    assert listed.status_code == 200
+    assert listed.json()[0]["id"] == payload["id"]
+
+    fetched = api_client.get(f"/api/syntheses/{payload['id']}")
+    assert fetched.status_code == 200
+    assert fetched.json()["markdown"] == payload["markdown"]
+
+    exported = api_client.get(f"/api/syntheses/{payload['id']}/word")
+    assert exported.status_code == 200
+    assert exported.headers["content-type"] == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    assert "books-czar-" in exported.headers["content-disposition"]
+    assert exported.content.startswith(b"PK")
+
+    deleted = api_client.delete(f"/api/syntheses/{payload['id']}")
+    assert deleted.status_code == 200
+    assert api_client.get(f"/api/syntheses/{payload['id']}").status_code == 404

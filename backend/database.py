@@ -65,6 +65,27 @@ def init_db() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS synthesis_runs (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                objective TEXT NOT NULL,
+                audience TEXT NOT NULL,
+                lens TEXT NOT NULL,
+                book_ids TEXT NOT NULL,
+                status TEXT NOT NULL,
+                markdown TEXT NOT NULL,
+                sources TEXT NOT NULL,
+                error TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_synthesis_runs_created_at ON synthesis_runs(created_at)"
+        )
 
 
 @contextmanager

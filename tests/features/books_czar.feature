@@ -33,3 +33,19 @@ Feature: Books Czar local RAG workflows
     Then the answer should include "RAG answer"
     And the answer should cite a source titled "Risk Strategy"
     And the model prompt should include retrieved excerpts
+
+  Scenario: Generate an executive synthesis brief over indexed local content
+    Given a clean Books Czar workspace
+    And the books folder contains "board-strategy.txt" with:
+      """
+      The executive team should align AI strategy with local evidence, governance controls, and measurable adoption goals.
+      """
+    When I scan the books folder
+    And I index the library
+    And I synthesize "What should executives prioritize for AI strategy?"
+    Then the synthesis should include "Executive Takeaway"
+    And the synthesis should include "Recommended 30/60/90 Day Actions"
+    And the synthesis should include "Metrics to Watch"
+    And the synthesis should cite a source titled "Board Strategy"
+    When I export the synthesis to Word
+    Then the Word export should be a docx file

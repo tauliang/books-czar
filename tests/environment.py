@@ -36,6 +36,15 @@ class FakeLMStudioClient:
     async def chat(self, system_prompt: str, user_prompt: str) -> str:
         self.__class__.last_system_prompt = system_prompt
         self.__class__.last_user_prompt = user_prompt
+        if "Board Brief" in system_prompt:
+            return (
+                "## Executive Takeaway\n"
+                "Executives should use cited local evidence for strategy decisions [S1].\n\n"
+                "## Recommended 30/60/90 Day Actions\n"
+                "- 30 days: Confirm priority indexed sources [S1].\n\n"
+                "## Metrics to Watch\n"
+                "- Adoption goal progress [S1]."
+            )
         return "RAG answer based on retrieved local context [1]"
 
 

@@ -2,11 +2,13 @@ import {
   AlertTriangle,
   BookOpen,
   CheckCircle2,
+  ClipboardList,
   Cpu,
   Database,
   Download,
   FileText,
   FolderSearch,
+  History,
   Library,
   Link,
   Loader2,
@@ -21,9 +23,25 @@ import {
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
-import type { AppSettings, Book, ChatMessage, Health, ModelCatalog } from "./types";
+import { parseBriefMarkdown, presentableLines } from "./briefParser";
+import type {
+  AppSettings,
+  Book,
+  ChatMessage,
+  Health,
+  ModelCatalog,
+  SynthesisAudience,
+  SynthesisLens,
+  SynthesisRun
+} from "./types";
 
-type Panel = "library" | "import" | "settings";
+type Panel = "library" | "import" | "synthesis" | "settings";
+
+interface SynthesisFormState {
+  objective: string;
+  audience: SynthesisAudience;
+  lens: SynthesisLens;
+}
 
 const emptySettings: AppSettings = {
   lmstudio_base_url: "http://127.0.0.1:1234/v1",
@@ -46,7 +64,14 @@ export default function App() {
   const [health, setHealth] = useState<Health | null>(null);
   const [modelCatalog, setModelCatalog] = useState<ModelCatalog>(emptyModelCatalog);
   const [settings, setSettings] = useState<AppSettings>(emptySettings);
-  const [panel, setPanel] = useState<Panel>("library");
+  const [syntheses, setSyntheses] = useState<SynthesisRun[]>([]);
+  const [activeSynthesis, setActiveSynthesis] = useState<SynthesisRun | null>(null);
+  const [synthesisForm, setSynthesisForm] = useState<SynthesisFormState>({
+    objective: "",
+    audience: "c_suite",
+    lens: "all"
+  });
+  const [panel, setPanel] = useState<Panel>(initialPanel);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [query, setQuery] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -71,23 +96,45 @@ export default function App() {
   );
   const indexedBooks = books.filter((book) => book.status === "indexed").length;
   const storedBooks = books.filter((book) => book.file_name).length;
+  const selectedIndexedIds = useMemo(
+    () =>
+      selectedBooks
+        .filter((book) => book.status === "indexed")
+        .map((book) => book.id),
+    [selectedBooks]
+  );
+  const synthesisScopeCount = selectedIds.length ? selectedIndexedIds.length : indexedBooks;
 
   useEffect(() => {
     void refreshAll();
   }, []);
 
+  useEffect(() => {
+    if (!activeSynthesis || synthesisForm.objective.trim()) return;
+    setSynthesisForm({
+      objective: activeSynthesis.objective,
+      audience: activeSynthesis.audience,
+      lens: activeSynthesis.lens
+    });
+  }, [activeSynthesis, synthesisForm.objective]);
+
   async function refreshAll() {
     setError(null);
-    const [bookRows, healthRow, settingRow, modelRows] = await Promise.all([
+    const [bookRows, healthRow, settingRow, modelRows, synthesisRows] = await Promise.all([
       api.books(),
       api.health(),
       api.settings(),
-      api.models()
+      api.models(),
+      api.syntheses()
     ]);
     setBooks(bookRows);
     setHealth(healthRow);
     setSettings(settingRow);
     setModelCatalog(modelRows);
+    setSyntheses(synthesisRows);
+    setActiveSynthesis((current) =>
+      current ? synthesisRows.find((run) => run.id === current.id) ?? synthesisRows[0] ?? null : synthesisRows[0] ?? null
+    );
   }
 
   async function runTask(label: string, task: () => Promise<void>) {
@@ -184,6 +231,52 @@ export default function App() {
     });
   }
 
+  async function handleCreateSynthesis(event: FormEvent) {
+    event.preventDefault();
+    const objective = synthesisForm.objective.trim();
+    if (!objective) return;
+    await runTask("synthesizing", async () => {
+      const synthesis = await api.createSynthesis({
+        objective,
+        audience: synthesisForm.audience,
+        lens: synthesisForm.lens,
+        book_ids: selectedIds.length ? selectedIndexedIds : null
+      });
+      setActiveSynthesis(synthesis);
+      setSyntheses((current) => [synthesis, ...current.filter((run) => run.id !== synthesis.id)]);
+      setNotice("Synthesis saved");
+      await refreshAll();
+    });
+  }
+
+  async function handleOpenSynthesis(runId: string) {
+    await runTask("loading synthesis", async () => {
+      const synthesis = await api.synthesis(runId);
+      setActiveSynthesis(synthesis);
+    });
+  }
+
+  async function handleDeleteSynthesis(runId: string) {
+    await runTask("deleting synthesis", async () => {
+      await api.deleteSynthesis(runId);
+      setSyntheses((current) => {
+        const remaining = current.filter((run) => run.id !== runId);
+        setActiveSynthesis((active) =>
+          active?.id === runId ? remaining[0] ?? null : active
+        );
+        return remaining;
+      });
+      await refreshAll();
+    });
+  }
+
+  async function handleExportSynthesis(run: SynthesisRun) {
+    await runTask("exporting Word", async () => {
+      await api.exportSynthesisWord(run.id);
+      setNotice("Word brief downloaded");
+    });
+  }
+
   async function handleChat(event: FormEvent) {
     event.preventDefault();
     const text = query.trim();
@@ -238,6 +331,10 @@ export default function App() {
             <Upload size={16} />
             Import
           </button>
+          <button className={panel === "synthesis" ? "active" : ""} onClick={() => setPanel("synthesis")}>
+            <ClipboardList size={16} />
+            Synthesis
+          </button>
           <button className={panel === "settings" ? "active" : ""} onClick={() => setPanel("settings")}>
             <Settings size={16} />
             Settings
@@ -288,7 +385,7 @@ export default function App() {
 
           {notice && <div className="notice success">{notice}</div>}
           {error && <div className="notice error">{error}</div>}
-          {busyLabel && <div className="notice neutral">{busyLabel}</div>}
+          {busyLabel && busy !== "synthesizing" && <div className="notice neutral">{busyLabel}</div>}
 
           {panel === "library" && (
             <div className="bookList">
@@ -373,6 +470,118 @@ export default function App() {
             </div>
           )}
 
+          {panel === "synthesis" && (
+            <div className="synthesisGrid">
+              <form className="synthesisForm" onSubmit={(event) => void handleCreateSynthesis(event)}>
+                <div className="toolPanelHeader">
+                  <ClipboardList size={18} />
+                  <h3>Board Brief</h3>
+                </div>
+                <label>
+                  Objective
+                  <textarea
+                    value={synthesisForm.objective}
+                    onChange={(event) =>
+                      setSynthesisForm({ ...synthesisForm, objective: event.target.value })
+                    }
+                    placeholder="What should executives prioritize for AI strategy?"
+                  />
+                </label>
+                <div className="formRow">
+                  <label>
+                    Audience
+                    <select
+                      value={synthesisForm.audience}
+                      onChange={(event) =>
+                        setSynthesisForm({
+                          ...synthesisForm,
+                          audience: event.target.value as SynthesisAudience
+                        })
+                      }
+                    >
+                      {audienceOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Lens
+                    <select
+                      value={synthesisForm.lens}
+                      onChange={(event) =>
+                        setSynthesisForm({
+                          ...synthesisForm,
+                          lens: event.target.value as SynthesisLens
+                        })
+                      }
+                    >
+                      {lensOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="scopeSummary">
+                  <span>Scope</span>
+                  <strong>
+                    {synthesisScopeCount
+                      ? `${synthesisScopeCount} indexed title${synthesisScopeCount === 1 ? "" : "s"}`
+                      : "No indexed titles"}
+                  </strong>
+                </div>
+                <button
+                  className="primaryButton"
+                  type="submit"
+                  disabled={busy === "synthesizing" || !synthesisForm.objective.trim() || !synthesisScopeCount}
+                >
+                  {busy === "synthesizing" ? <Loader2 className="spin" size={17} /> : <ClipboardList size={17} />}
+                  Generate Brief
+                </button>
+              </form>
+
+              {busy === "synthesizing" && <BuildingBriefStatus />}
+
+              <div className="historyPanel">
+                <div className="toolPanelHeader">
+                  <History size={18} />
+                  <h3>Saved Briefs</h3>
+                </div>
+                {syntheses.length === 0 ? (
+                  <CompactEmpty label="No saved briefs" />
+                ) : (
+                  <div className="synthesisHistory">
+                    {syntheses.map((run) => (
+                      <article
+                        key={run.id}
+                        className={`synthesisRun ${activeSynthesis?.id === run.id ? "active" : ""}`}
+                      >
+                        <button type="button" onClick={() => void handleOpenSynthesis(run.id)}>
+                          <strong>{run.title}</strong>
+                          <span>
+                            {formatAudience(run.audience)} · {formatLens(run.lens)} · {run.book_ids.length} title
+                            {run.book_ids.length === 1 ? "" : "s"}
+                          </span>
+                          <span>{formatDate(run.created_at)} · {run.status}</span>
+                        </button>
+                        <button
+                          className="iconButton danger"
+                          title="Delete synthesis"
+                          onClick={() => void handleDeleteSynthesis(run.id)}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {panel === "settings" && (
             <form className="settingsForm" onSubmit={(event) => void handleSaveSettings(event)}>
               <label>
@@ -451,52 +660,114 @@ export default function App() {
           )}
         </section>
 
-        <section className="chatPane">
-          <div className="chatHeader">
-            <div>
-              <h2>Ask the Czar</h2>
-              <span>{selectedIds.length ? `${selectedIds.length} selected title scope` : "All indexed titles"}</span>
-            </div>
-            <MessageSquare size={20} />
-          </div>
-
-          <div className="messageStack">
-            {messages.length === 0 ? (
-              <div className="chatEmpty">
-                <Search size={24} />
-                <span>Ask from indexed books</span>
+        {panel === "synthesis" ? (
+          <section className="chatPane synthesisDetail">
+            <div className="chatHeader">
+              <div>
+                <h2>Synthesis Brief</h2>
+                <span>
+                  {activeSynthesis
+                    ? `${formatAudience(activeSynthesis.audience)} · ${formatLens(activeSynthesis.lens)}`
+                    : "No brief selected"}
+                </span>
               </div>
-            ) : (
-              messages.map((message) => (
-                <article key={message.id} className={`message ${message.role}`}>
-                  <p>{message.content}</p>
-                  {message.sources?.length ? (
-                    <div className="sources">
-                      {message.sources.map((source) => (
-                        <div className="source" key={`${message.id}-${source.book_id}-${source.location}`}>
-                          <strong>{source.title}</strong>
+              <div className="briefHeaderActions">
+                {activeSynthesis?.status === "complete" && !activeSynthesis.error && activeSynthesis.markdown.trim() ? (
+                  <button
+                    className="secondaryButton briefExportButton"
+                    title="Download Microsoft Word document"
+                    onClick={() => void handleExportSynthesis(activeSynthesis)}
+                    disabled={busy === "exporting Word"}
+                  >
+                    {busy === "exporting Word" ? <Loader2 className="spin" size={16} /> : <Download size={16} />}
+                    Export Word
+                  </button>
+                ) : null}
+                <ClipboardList size={20} />
+              </div>
+            </div>
+
+            <div className="briefStack">
+              {!activeSynthesis ? (
+                <div className="chatEmpty">
+                  <ClipboardList size={24} />
+                  <span>No saved brief selected</span>
+                </div>
+              ) : (
+                <>
+                  <BriefAtAGlance run={activeSynthesis} />
+                  {activeSynthesis.error ? (
+                    <div className="notice error">{activeSynthesis.error}</div>
+                  ) : (
+                    <BriefArtifact markdown={activeSynthesis.markdown} />
+                  )}
+                  {activeSynthesis.sources.length ? (
+                    <div className="sources briefSources" aria-label="Source evidence">
+                      <div className="sourceHeader">
+                        <strong>Source Evidence</strong>
+                        <span>{activeSynthesis.sources.length} cited passage{activeSynthesis.sources.length === 1 ? "" : "s"}</span>
+                      </div>
+                      {activeSynthesis.sources.map((source, index) => (
+                        <div className="source" key={`${activeSynthesis.id}-${source.book_id}-${source.location}-${index}`}>
+                          <strong>[S{index + 1}] {source.title}</strong>
                           <span>{source.location} · {source.score.toFixed(2)}</span>
                           <p>{source.excerpt}</p>
                         </div>
                       ))}
                     </div>
                   ) : null}
-                </article>
-              ))
-            )}
-          </div>
+                </>
+              )}
+            </div>
+          </section>
+        ) : (
+          <section className="chatPane">
+            <div className="chatHeader">
+              <div>
+                <h2>Ask the Czar</h2>
+                <span>{selectedIds.length ? `${selectedIds.length} selected title scope` : "All indexed titles"}</span>
+              </div>
+              <MessageSquare size={20} />
+            </div>
 
-          <form className="chatComposer" onSubmit={(event) => void handleChat(event)}>
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="What should we learn from this library?"
-            />
-            <button title="Send" type="submit" disabled={busy === "chat" || !query.trim()}>
-              {busy === "chat" ? <Loader2 className="spin" size={18} /> : <Send size={18} />}
-            </button>
-          </form>
-        </section>
+            <div className="messageStack">
+              {messages.length === 0 ? (
+                <div className="chatEmpty">
+                  <Search size={24} />
+                  <span>Ask from indexed books</span>
+                </div>
+              ) : (
+                messages.map((message) => (
+                  <article key={message.id} className={`message ${message.role}`}>
+                    <p>{message.content}</p>
+                    {message.sources?.length ? (
+                      <div className="sources">
+                        {message.sources.map((source) => (
+                          <div className="source" key={`${message.id}-${source.book_id}-${source.location}`}>
+                            <strong>{source.title}</strong>
+                            <span>{source.location} · {source.score.toFixed(2)}</span>
+                            <p>{source.excerpt}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </article>
+                ))
+              )}
+            </div>
+
+            <form className="chatComposer" onSubmit={(event) => void handleChat(event)}>
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="What should we learn from this library?"
+              />
+              <button title="Send" type="submit" disabled={busy === "chat" || !query.trim()}>
+                {busy === "chat" ? <Loader2 className="spin" size={18} /> : <Send size={18} />}
+              </button>
+            </form>
+          </section>
+        )}
       </main>
     </div>
   );
@@ -572,10 +843,130 @@ function EmptyState() {
   );
 }
 
+function CompactEmpty({ label }: { label: string }) {
+  return (
+    <div className="compactEmpty">
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function BuildingBriefStatus() {
+  return (
+    <div className="buildingBrief">
+      <div className="buildingBriefTitle">
+        <Loader2 className="spin" size={17} />
+        <strong>Building brief</strong>
+      </div>
+      <div className="buildSteps">
+        {["Retrieving evidence", "Comparing themes", "Drafting actions", "Mapping citations"].map((step) => (
+          <span key={step}>{step}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function BriefAtAGlance({ run }: { run: SynthesisRun }) {
+  return (
+    <div className={`briefGlance ${run.status}`}>
+      <div>
+        <span>Brief at a Glance</span>
+        <strong>{run.title}</strong>
+      </div>
+      <div className="briefGlanceChips">
+        <span>{formatAudience(run.audience)}</span>
+        <span>{formatLens(run.lens)}</span>
+        <span>{run.sources.length} source{run.sources.length === 1 ? "" : "s"}</span>
+        <span>{formatDate(run.created_at)}</span>
+      </div>
+    </div>
+  );
+}
+
+function BriefArtifact({ markdown }: { markdown: string }) {
+  const parsed = parseBriefMarkdown(markdown);
+  const featuredTitles = new Set([
+    "Recommended 30/60/90 Day Actions",
+    "Metrics to Watch",
+    "Source Notes"
+  ]);
+  const narrativeSections = parsed.sections.filter((section) => !featuredTitles.has(section.title));
+  return (
+    <article className="briefArtifact">
+      <div className="briefArtifactHeader">
+        <span>Board Brief</span>
+        <h2>{parsed.title}</h2>
+      </div>
+
+      {parsed.takeaway.length ? (
+        <section className="takeawayCallout">
+          <span>Executive Takeaway</span>
+          {parsed.takeaway.map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+        </section>
+      ) : null}
+
+      {(parsed.actions || parsed.metrics) && (
+        <div className="briefFocusGrid">
+          {parsed.actions && <BriefCompactSection section={parsed.actions} />}
+          {parsed.metrics && <BriefCompactSection section={parsed.metrics} />}
+        </div>
+      )}
+
+      {narrativeSections.map((section) => (
+        <BriefSectionView key={section.title} section={section} />
+      ))}
+
+      {parsed.sourceNotes && <BriefSectionView section={parsed.sourceNotes} subtle />}
+    </article>
+  );
+}
+
+function BriefCompactSection({ section }: { section: { title: string; lines: string[] } }) {
+  const lines = presentableLines(section.lines);
+  if (!lines.length) return null;
+  return (
+    <section className="briefCompactSection">
+      <h3>{section.title}</h3>
+      <div>
+        {lines.map((line) => (
+          <p key={line} className={/^(30|60|90)\s+days$/i.test(line) ? "actionMilestone" : ""}>
+            {line}
+          </p>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function BriefSectionView({ section, subtle = false }: { section: { title: string; lines: string[] }; subtle?: boolean }) {
+  const lines = presentableLines(section.lines);
+  if (!lines.length) return null;
+  return (
+    <section className={`briefSection ${subtle ? "subtle" : ""}`}>
+      <h3>{section.title}</h3>
+      {lines.map((line) => (
+        <p key={line} className="briefBullet">
+          <span aria-hidden="true">•</span>
+          {line}
+        </p>
+      ))}
+    </section>
+  );
+}
+
 function panelTitle(panel: Panel) {
   if (panel === "import") return "Import";
+  if (panel === "synthesis") return "Synthesis";
   if (panel === "settings") return "Settings";
   return "Library";
+}
+
+function initialPanel(): Panel {
+  const hash = window.location.hash.replace("#", "");
+  return hash === "import" || hash === "synthesis" || hash === "settings" ? hash : "library";
 }
 
 function parseDirectUrls(value: string): Array<{ title?: string; url: string }> {
@@ -597,4 +988,37 @@ function parseDirectUrls(value: string): Array<{ title?: string; url: string }> 
 function withCurrentModel(models: string[], current: string): string[] {
   const ordered = current ? [current, ...models] : models;
   return ordered.filter((model, index, all) => model && all.indexOf(model) === index);
+}
+
+const audienceOptions: Array<{ value: SynthesisAudience; label: string }> = [
+  { value: "board", label: "Board" },
+  { value: "c_suite", label: "C-Suite" },
+  { value: "cdao_leadership", label: "CDAO Leadership" },
+  { value: "technical_leaders", label: "Technical Leaders" }
+];
+
+const lensOptions: Array<{ value: SynthesisLens; label: string }> = [
+  { value: "all", label: "All" },
+  { value: "strategy", label: "Strategy" },
+  { value: "risk_governance", label: "Risk/Governance" },
+  { value: "operating_model", label: "Operating Model" },
+  { value: "investment", label: "Investment" },
+  { value: "talent_change", label: "Talent/Change" }
+];
+
+function formatAudience(value: SynthesisAudience) {
+  return audienceOptions.find((option) => option.value === value)?.label ?? value;
+}
+
+function formatLens(value: SynthesisLens) {
+  return lensOptions.find((option) => option.value === value)?.label ?? value;
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(new Date(value));
 }

@@ -52,6 +52,37 @@ export interface ChatResponse {
   sources: Source[];
 }
 
+export type SynthesisAudience = "board" | "c_suite" | "cdao_leadership" | "technical_leaders";
+export type SynthesisLens =
+  | "all"
+  | "strategy"
+  | "risk_governance"
+  | "operating_model"
+  | "investment"
+  | "talent_change";
+
+export interface SynthesisRequest {
+  objective: string;
+  audience: SynthesisAudience;
+  lens: SynthesisLens;
+  book_ids: string[] | null;
+}
+
+export interface SynthesisRun {
+  id: string;
+  title: string;
+  objective: string;
+  audience: SynthesisAudience;
+  lens: SynthesisLens;
+  book_ids: string[];
+  status: string;
+  markdown: string;
+  sources: Source[];
+  error?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";

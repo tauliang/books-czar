@@ -1,4 +1,12 @@
-import type { AppSettings, Book, ChatResponse, Health, ModelCatalog } from "./types";
+import type {
+  AppSettings,
+  Book,
+  ChatResponse,
+  Health,
+  ModelCatalog,
+  SynthesisRequest,
+  SynthesisRun
+} from "./types";
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(path, {
@@ -19,6 +27,38 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
   }
   return response.json() as Promise<T>;
+}
+
+async function requestDownload(path: string, fallbackFilename: string): Promise<void> {
+  const response = await fetch(path);
+  if (!response.ok) {
+    let detail = response.statusText;
+    try {
+      const payload = await response.json();
+      detail = payload.detail ?? detail;
+    } catch {
+      // Ignore non-JSON error payloads.
+    }
+    throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+  }
+
+  const blob = await response.blob();
+  const filename = filenameFromDisposition(response.headers.get("Content-Disposition"), fallbackFilename);
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function filenameFromDisposition(disposition: string | null, fallbackFilename: string): string {
+  const utfMatch = disposition?.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utfMatch?.[1]) return decodeURIComponent(utfMatch[1]);
+  const plainMatch = disposition?.match(/filename="?([^";]+)"?/i);
+  return plainMatch?.[1] ?? fallbackFilename;
 }
 
 export const api = {
@@ -66,5 +106,16 @@ export const api = {
     request<ChatResponse>("/api/chat", {
       method: "POST",
       body: JSON.stringify({ message, book_ids: bookIds, top_k: topK })
-    })
+    }),
+  syntheses: () => request<SynthesisRun[]>("/api/syntheses"),
+  synthesis: (id: string) => request<SynthesisRun>(`/api/syntheses/${id}`),
+  createSynthesis: (payload: SynthesisRequest) =>
+    request<SynthesisRun>("/api/syntheses", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  exportSynthesisWord: (id: string) =>
+    requestDownload(`/api/syntheses/${id}/word`, "books-czar-board-brief.docx"),
+  deleteSynthesis: (id: string) =>
+    request<{ ok: boolean }>(`/api/syntheses/${id}`, { method: "DELETE" })
 };

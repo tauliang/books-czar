@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field, HttpUrl
 
 
@@ -78,6 +80,39 @@ class SourceOut(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     sources: list[SourceOut]
+
+
+SynthesisAudience = Literal["board", "c_suite", "cdao_leadership", "technical_leaders"]
+SynthesisLens = Literal[
+    "all",
+    "strategy",
+    "risk_governance",
+    "operating_model",
+    "investment",
+    "talent_change",
+]
+
+
+class SynthesisRequest(BaseModel):
+    objective: str = Field(min_length=1)
+    audience: SynthesisAudience = "c_suite"
+    lens: SynthesisLens = "all"
+    book_ids: list[str] | None = None
+
+
+class SynthesisRunOut(BaseModel):
+    id: str
+    title: str
+    objective: str
+    audience: SynthesisAudience
+    lens: SynthesisLens
+    book_ids: list[str] = Field(default_factory=list)
+    status: str
+    markdown: str = ""
+    sources: list[SourceOut] = Field(default_factory=list)
+    error: str | None = None
+    created_at: str
+    updated_at: str
 
 
 class HealthResponse(BaseModel):

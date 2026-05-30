@@ -114,3 +114,46 @@ def step_answer_should_cite_source(context, title: str):
 def step_prompt_should_include_retrieved_excerpts(context):
     assert "Excerpts:" in context.fake_lmstudio.last_user_prompt
     assert "lower data leakage risk" in context.fake_lmstudio.last_user_prompt
+
+
+@when('I synthesize "{objective}"')
+def step_synthesize_objective(context, objective: str):
+    context.response = context.client.post(
+        "/api/syntheses",
+        json={
+            "objective": objective,
+            "audience": "c_suite",
+            "lens": "strategy",
+            "book_ids": None,
+        },
+    )
+    assert context.response.status_code == 200
+    context.synthesis_result = context.response.json()
+
+
+@then('the synthesis should include "{text}"')
+def step_synthesis_should_include(context, text: str):
+    assert text in context.synthesis_result["markdown"]
+
+
+@then('the synthesis should cite a source titled "{title}"')
+def step_synthesis_should_cite_source(context, title: str):
+    source_titles = [source["title"] for source in context.synthesis_result["sources"]]
+    assert title in source_titles
+
+
+@when("I export the synthesis to Word")
+def step_export_synthesis_to_word(context):
+    run_id = context.synthesis_result["id"]
+    context.response = context.client.get(f"/api/syntheses/{run_id}/word")
+    assert context.response.status_code == 200
+    context.word_export = context.response
+
+
+@then("the Word export should be a docx file")
+def step_word_export_should_be_docx(context):
+    assert context.word_export.headers["content-type"] == (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    assert context.word_export.headers["content-disposition"].endswith(".docx\"")
+    assert context.word_export.content.startswith(b"PK")

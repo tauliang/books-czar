@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from .database import init_db
@@ -19,20 +19,27 @@ from .schemas import (
     LocalScanResult,
     ManifestImportResult,
     ModelListResponse,
+    SynthesisRequest,
+    SynthesisRunOut,
 )
 from .storage import (
     answer_with_sources,
     attach_file_to_book,
     counts,
+    create_synthesis_run,
     delete_book,
+    delete_synthesis_run,
+    get_synthesis_run,
     get_app_settings,
     import_manifest,
     index_books,
     list_books,
+    list_synthesis_runs,
     save_app_settings,
     save_upload,
     scan_books_folder,
 )
+from .word_export import WORD_MIME_TYPE, build_synthesis_docx, word_filename
 
 
 @asynccontextmanager
@@ -47,6 +54,7 @@ app.add_middleware(
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],
 )
 
 
@@ -175,3 +183,48 @@ async def chat(request: ChatRequest) -> ChatResponse:
     except Exception as exc:  # noqa: BLE001 - LM Studio errors should be readable in the UI.
         raise HTTPException(status_code=502, detail=f"LM Studio request failed: {exc}") from exc
     return ChatResponse(answer=answer, sources=sources)
+
+
+@app.get("/api/syntheses", response_model=list[SynthesisRunOut])
+async def read_syntheses() -> list[SynthesisRunOut]:
+    return list_synthesis_runs()
+
+
+@app.post("/api/syntheses", response_model=SynthesisRunOut)
+async def create_synthesis(request: SynthesisRequest) -> SynthesisRunOut:
+    try:
+        return await create_synthesis_run(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 - LM Studio errors should be readable in the UI.
+        raise HTTPException(status_code=502, detail=f"Synthesis request failed: {exc}") from exc
+
+
+@app.get("/api/syntheses/{run_id}", response_model=SynthesisRunOut)
+async def read_synthesis(run_id: str) -> SynthesisRunOut:
+    synthesis = get_synthesis_run(run_id)
+    if synthesis is None:
+        raise HTTPException(status_code=404, detail="Synthesis not found")
+    return synthesis
+
+
+@app.get("/api/syntheses/{run_id}/word")
+async def export_synthesis_word(run_id: str) -> Response:
+    synthesis = get_synthesis_run(run_id)
+    if synthesis is None:
+        raise HTTPException(status_code=404, detail="Synthesis not found")
+    if synthesis.status != "complete" or not synthesis.markdown.strip():
+        raise HTTPException(status_code=400, detail="Synthesis has no completed brief to export.")
+
+    return Response(
+        content=build_synthesis_docx(synthesis),
+        media_type=WORD_MIME_TYPE,
+        headers={"Content-Disposition": f'attachment; filename="{word_filename(synthesis.title)}"'},
+    )
+
+
+@app.delete("/api/syntheses/{run_id}")
+async def remove_synthesis(run_id: str):
+    if not delete_synthesis_run(run_id):
+        raise HTTPException(status_code=404, detail="Synthesis not found")
+    return {"ok": True}

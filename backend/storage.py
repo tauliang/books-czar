@@ -17,6 +17,12 @@ from .lmstudio import LMStudioClient
 from .manifest import ManifestItem, parse_manifest_bytes
 from .parsers import SUPPORTED_EXTENSIONS, parse_document
 from .schemas import AppSettings, BookOut, SourceOut
+from .schemas import SynthesisRequest, SynthesisRunOut
+from .synthesis import (
+    build_synthesis_prompts,
+    build_synthesis_retrieval_questions,
+    dedupe_synthesis_sources,
+)
 
 
 def get_app_settings() -> AppSettings:
@@ -290,6 +296,46 @@ async def answer_with_sources(message: str, top_k: int, book_ids: list[str] | No
     return answer, sources
 
 
+async def create_synthesis_run(request: SynthesisRequest) -> SynthesisRunOut:
+    request = request.model_copy(update={"objective": request.objective.strip()})
+    resolved_book_ids = _indexed_book_ids(request.book_ids)
+    title = _synthesis_title(request.objective)
+    run_id = _insert_synthesis_run(title, request, resolved_book_ids)
+    try:
+        sources = await _retrieve_synthesis_sources(request, resolved_book_ids)
+        if not sources:
+            raise ValueError("Index one or more books before creating a synthesis.")
+        markdown = await _generate_synthesis_markdown(request, sources)
+        _update_synthesis_run(run_id, "complete", markdown, sources, None)
+    except Exception as exc:
+        _update_synthesis_run(run_id, "error", "", [], str(exc))
+        raise
+    synthesis = get_synthesis_run(run_id)
+    if synthesis is None:
+        raise ValueError("Synthesis run could not be loaded")
+    return synthesis
+
+
+def list_synthesis_runs() -> list[SynthesisRunOut]:
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM synthesis_runs ORDER BY created_at DESC, title"
+        ).fetchall()
+    return [_synthesis_from_row(row) for row in rows]
+
+
+def get_synthesis_run(run_id: str) -> SynthesisRunOut | None:
+    with db() as conn:
+        row = conn.execute("SELECT * FROM synthesis_runs WHERE id = ?", (run_id,)).fetchone()
+    return _synthesis_from_row(row) if row else None
+
+
+def delete_synthesis_run(run_id: str) -> bool:
+    with db() as conn:
+        cursor = conn.execute("DELETE FROM synthesis_runs WHERE id = ?", (run_id,))
+    return cursor.rowcount > 0
+
+
 def counts() -> tuple[int, int]:
     with db() as conn:
         book_count = conn.execute("SELECT COUNT(*) FROM books").fetchone()[0]
@@ -429,6 +475,132 @@ def _load_embedded_chunks(book_ids: list[str] | None) -> list[dict[str, Any]]:
             params,
         ).fetchall()
     return [dict_from_row(row) for row in rows]
+
+
+async def _retrieve_synthesis_sources(
+    request: SynthesisRequest,
+    book_ids: list[str],
+) -> list[SourceOut]:
+    if not book_ids:
+        return []
+    collected: list[SourceOut] = []
+    questions = build_synthesis_retrieval_questions(
+        request.objective,
+        request.audience,
+        request.lens,
+    )
+    for question in questions:
+        collected.extend(await retrieve_sources(question, 4, book_ids))
+    return dedupe_synthesis_sources(collected)
+
+
+async def _generate_synthesis_markdown(
+    request: SynthesisRequest,
+    sources: list[SourceOut],
+) -> str:
+    settings = get_app_settings()
+    lmstudio = LMStudioClient(settings)
+    system_prompt, user_prompt = build_synthesis_prompts(request, sources)
+    return await lmstudio.chat(system_prompt, user_prompt)
+
+
+def _indexed_book_ids(book_ids: list[str] | None) -> list[str]:
+    params: list[Any] = []
+    where = ""
+    if book_ids is not None:
+        if not book_ids:
+            return []
+        placeholders = ",".join("?" for _ in book_ids)
+        where = f"WHERE b.id IN ({placeholders})"
+        params.extend(book_ids)
+    with db() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT DISTINCT b.id, b.title
+            FROM books b
+            JOIN chunks c ON c.book_id = b.id
+            {where}
+            ORDER BY b.title
+            """,
+            params,
+        ).fetchall()
+    return [row["id"] for row in rows]
+
+
+def _insert_synthesis_run(
+    title: str,
+    request: SynthesisRequest,
+    book_ids: list[str],
+) -> str:
+    run_id = uuid.uuid4().hex
+    now = utc_now()
+    with db() as conn:
+        conn.execute(
+            """
+            INSERT INTO synthesis_runs(
+                id, title, objective, audience, lens, book_ids, status,
+                markdown, sources, error, created_at, updated_at
+            )
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                run_id,
+                title,
+                request.objective,
+                request.audience,
+                request.lens,
+                json.dumps(book_ids),
+                "running",
+                "",
+                "[]",
+                None,
+                now,
+                now,
+            ),
+        )
+    return run_id
+
+
+def _update_synthesis_run(
+    run_id: str,
+    status: str,
+    markdown: str,
+    sources: list[SourceOut],
+    error: str | None,
+) -> None:
+    with db() as conn:
+        conn.execute(
+            """
+            UPDATE synthesis_runs
+            SET status = ?, markdown = ?, sources = ?, error = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                status,
+                markdown,
+                json.dumps([source.model_dump() for source in sources]),
+                error,
+                utc_now(),
+                run_id,
+            ),
+        )
+
+
+def _synthesis_from_row(row: Any) -> SynthesisRunOut:
+    values = dict_from_row(row)
+    values["book_ids"] = json.loads(values["book_ids"] or "[]")
+    values["sources"] = [
+        SourceOut(**source)
+        for source in json.loads(values["sources"] or "[]")
+    ]
+    return SynthesisRunOut(**values)
+
+
+def _synthesis_title(objective: str) -> str:
+    clean = re.sub(r"\s+", " ", objective).strip()
+    if not clean:
+        return "Executive Synthesis"
+    return clean if len(clean) <= 72 else f"{clean[:72].rsplit(' ', 1)[0]}..."
 
 
 def _cosine_similarity(left: list[float], right: list[float]) -> float:
