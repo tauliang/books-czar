@@ -1,0 +1,32 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    environment:
+      BOOKWISE_DATA_DIR: /app/data
+      BOOKWISE_BOOKS_DIR: /app/books
+      LMSTUDIO_BASE_URL: "${LMSTUDIO_BASE_URL:-http://host.docker.internal:1234/v1}"
+      LMSTUDIO_CHAT_MODEL: "${LMSTUDIO_CHAT_MODEL:-local-model}"
+      LMSTUDIO_EMBEDDING_MODEL: "${LMSTUDIO_EMBEDDING_MODEL:-text-embedding-nomic-embed-text-v1.5}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8000:8000"
+    volumes:
+      - books_czar_data:/app/data
+      - ./books:/app/books
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      VITE_API_PROXY_TARGET: http://backend:8000
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+
+volumes:
+  books_czar_data:
