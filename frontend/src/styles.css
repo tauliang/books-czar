@@ -1,0 +1,580 @@
+:root {
+  color: #232521;
+  background: #f6f4ee;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 16px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.appShell {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 22px;
+  background: #ffffff;
+  border-right: 1px solid #ddd8cc;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brandMark {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  color: #ffffff;
+  background: #315b52;
+  border-radius: 8px;
+}
+
+.brand h1,
+.toolbar h2,
+.chatHeader h2 {
+  margin: 0;
+  color: #181a17;
+  font-size: 1.15rem;
+  letter-spacing: 0;
+}
+
+.brand span,
+.toolbar span,
+.chatHeader span,
+.bookSub,
+.compactNote,
+.selectedBox,
+.metric span {
+  color: #716d63;
+}
+
+.healthPill,
+.selectedBox,
+.notice,
+.statusBadge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 8px 10px;
+  border: 1px solid #ddd8cc;
+  border-radius: 8px;
+  background: #fbfaf6;
+  font-size: 0.88rem;
+}
+
+.healthPill.good {
+  color: #245d3b;
+  background: #edf7ee;
+  border-color: #bedbc5;
+}
+
+.healthPill.warn,
+.notice.neutral {
+  color: #7b5413;
+  background: #fff6dc;
+  border-color: #ead498;
+}
+
+.panelTabs {
+  display: grid;
+  gap: 8px;
+}
+
+.panelTabs button,
+.primaryButton,
+.secondaryButton,
+.iconButton,
+.attachButton,
+.selectedBox button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  border: 1px solid #d7d0c1;
+  border-radius: 8px;
+  color: #2c302b;
+  background: #ffffff;
+}
+
+.panelTabs button {
+  justify-content: flex-start;
+  padding: 0 12px;
+}
+
+.panelTabs button.active {
+  color: #ffffff;
+  background: #315b52;
+  border-color: #315b52;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.metrics div {
+  padding: 12px;
+  border: 1px solid #ddd8cc;
+  border-radius: 8px;
+  background: #fbfaf6;
+}
+
+.metrics strong {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 1.45rem;
+}
+
+.metrics span {
+  font-size: 0.82rem;
+}
+
+.selectedBox {
+  justify-content: space-between;
+  margin-top: auto;
+}
+
+.selectedBox button {
+  min-height: 28px;
+  padding: 0 10px;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(420px, 0.95fr) minmax(420px, 1.05fr);
+  gap: 18px;
+  padding: 18px;
+  min-width: 0;
+}
+
+.libraryPane,
+.chatPane {
+  display: flex;
+  min-width: 0;
+  min-height: calc(100vh - 36px);
+  flex-direction: column;
+  border: 1px solid #ddd8cc;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.toolbar,
+.chatHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border-bottom: 1px solid #e3ded3;
+}
+
+.toolbarActions {
+  display: flex;
+  gap: 8px;
+}
+
+.primaryButton {
+  min-width: 92px;
+  padding: 0 13px;
+  color: #ffffff;
+  background: #315b52;
+  border-color: #315b52;
+}
+
+.secondaryButton {
+  padding: 0 13px;
+  color: #315b52;
+  border-color: #b8cec7;
+  background: #eff7f3;
+}
+
+.iconButton {
+  width: 38px;
+  height: 38px;
+}
+
+.iconButton.danger {
+  color: #a33a2a;
+  border-color: #edc8bd;
+  background: #fff6f2;
+}
+
+.notice {
+  margin: 12px 16px 0;
+}
+
+.notice.success {
+  color: #245d3b;
+  background: #edf7ee;
+  border-color: #bedbc5;
+}
+
+.notice.error {
+  color: #a33a2a;
+  background: #fff1ed;
+  border-color: #edc8bd;
+}
+
+.bookList {
+  display: grid;
+  gap: 10px;
+  overflow: auto;
+  padding: 16px;
+}
+
+.bookRow {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #e1dace;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.bookRow.selected {
+  border-color: #8fb8ad;
+  box-shadow: inset 3px 0 0 #4b8175;
+}
+
+.bookSelect {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  color: #315b52;
+  border: 1px solid #d7d0c1;
+  border-radius: 8px;
+  background: #fbfaf6;
+}
+
+.bookMeta {
+  min-width: 0;
+}
+
+.bookTitle {
+  overflow: hidden;
+  color: #181a17;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bookSub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 5px;
+  font-size: 0.83rem;
+}
+
+.bookNote {
+  margin-top: 7px;
+  color: #7b5413;
+  font-size: 0.82rem;
+}
+
+.bookStats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #716d63;
+  font-size: 0.82rem;
+}
+
+.statusBadge {
+  min-height: 22px;
+  padding: 2px 7px;
+  text-transform: capitalize;
+}
+
+.statusBadge.ok {
+  color: #245d3b;
+  border-color: #bedbc5;
+  background: #edf7ee;
+}
+
+.statusBadge.bad {
+  color: #a33a2a;
+  border-color: #edc8bd;
+  background: #fff1ed;
+}
+
+.statusBadge.hold {
+  color: #7b5413;
+  border-color: #ead498;
+  background: #fff6dc;
+}
+
+.attachButton {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  color: #315b52;
+}
+
+.attachButton input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.emptyState,
+.chatEmpty {
+  display: grid;
+  gap: 10px;
+  place-items: center;
+  min-height: 220px;
+  color: #716d63;
+  border: 1px dashed #d7d0c1;
+  border-radius: 8px;
+  background: #fbfaf6;
+}
+
+.importGrid,
+.settingsForm {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.importGrid {
+  grid-template-columns: 1fr 1fr;
+}
+
+.toolPanel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e1dace;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.toolPanel.wide {
+  grid-column: 1 / -1;
+}
+
+.toolPanelHeader {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.toolPanelHeader h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.toolPanel input[type="file"] {
+  width: 100%;
+  color: #2c302b;
+}
+
+textarea {
+  min-height: 140px;
+  resize: vertical;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid #d7d0c1;
+  border-radius: 8px;
+  padding: 10px 11px;
+  color: #232521;
+  background: #fffefa;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid #8fb8ad;
+  border-color: #4b8175;
+}
+
+.settingsForm label {
+  display: grid;
+  gap: 7px;
+  color: #4a4b45;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.chatPane {
+  background: #fbfaf6;
+}
+
+.messageStack {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+  padding: 16px;
+}
+
+.message {
+  width: min(100%, 760px);
+  padding: 13px;
+  border: 1px solid #e1dace;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.message.user {
+  align-self: flex-end;
+  border-color: #b8cec7;
+  background: #eff7f3;
+}
+
+.message p {
+  margin: 0;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.sources {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.source {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+  border: 1px solid #e1dace;
+  border-radius: 8px;
+  background: #fbfaf6;
+}
+
+.source strong {
+  font-size: 0.9rem;
+}
+
+.source span {
+  color: #716d63;
+  font-size: 0.78rem;
+}
+
+.source p {
+  color: #4a4b45;
+  font-size: 0.86rem;
+}
+
+.chatComposer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  gap: 10px;
+  padding: 14px;
+  border-top: 1px solid #e3ded3;
+  background: #ffffff;
+}
+
+.chatComposer button {
+  display: grid;
+  place-items: center;
+  border: 1px solid #315b52;
+  border-radius: 8px;
+  color: #ffffff;
+  background: #315b52;
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 1060px) {
+  .appShell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    display: grid;
+    grid-template-columns: 1fr;
+    border-right: 0;
+    border-bottom: 1px solid #ddd8cc;
+  }
+
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .libraryPane,
+  .chatPane {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .workspace {
+    padding: 10px;
+  }
+
+  .importGrid,
+  .formRow {
+    grid-template-columns: 1fr;
+  }
+
+  .bookRow {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+
+  .bookStats {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
+}

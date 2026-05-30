@@ -1,0 +1,9 @@
+Local AI operating model:
+
+The company should keep sensitive book-derived notes, embeddings, and answer
+history inside a private local environment. LM Studio provides the local model
+runtime, while the application stores extracted passages and vectors in SQLite.
+
+The Chief Data and AI Officer should measure value by faster expert research,
+clearer source citation, lower data leakage risk, and better reuse of the
+company's local learning material.
