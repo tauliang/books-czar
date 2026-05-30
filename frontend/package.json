@@ -1,0 +1,28 @@
+{
+  "name": "books-czar-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test:brief": "tsc src/briefParser.ts --ignoreConfig --outDir .test-build --module ES2020 --target ES2020 --moduleResolution Bundler --skipLibCheck --allowSyntheticDefaultImports && node --test tests/briefParser.test.mjs",
+    "test:mobile-css": "node --test tests/mobile-css.test.mjs",
+    "test:mobile": "playwright test tests/mobile-audit.spec.ts",
+    "test:mobile:install": "playwright install chromium"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "lucide-react": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "typescript": "latest",
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "@playwright/test": "latest"
+  }
+}
