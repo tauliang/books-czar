@@ -1,0 +1,10 @@
+.git
+.venv
+books
+data
+__pycache__
+.pytest_cache
+*.pyc
+frontend/node_modules
+frontend/dist
+frontend/.vite
