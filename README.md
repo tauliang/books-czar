@@ -48,6 +48,39 @@ npm run dev
 
 Open `http://127.0.0.1:5173`.
 
+## Getting Started
+
+1. Start LM Studio and load a chat model plus an embedding model.
+2. Put your local `.epub`, `.pdf`, `.txt`, `.md`, or `.html` files under `./books`.
+3. Start the backend and frontend, then open `http://127.0.0.1:5173`.
+4. Confirm the status pill says `LM Studio online`.
+
+![Books Czar library screen](docs/images/01-library-empty.png)
+
+Open Import and scan the local `./books` folder. You can also upload files,
+import a CSV/JSON book list, or download direct authorized file URLs.
+
+![Import and scan local books](docs/images/02-import-scan-books.png)
+
+After scanning, Books Czar registers supported files in the local library.
+
+![Library after scanning books](docs/images/03-library-after-scan.png)
+
+Open Settings to choose the LM Studio models. The chat model is used to answer
+questions; the embedding model is used for indexing and retrieval.
+
+![Choose LM Studio models](docs/images/04-model-selection.png)
+
+Click `Index` to chunk the local books, create embeddings, and store the vectors
+in SQLite.
+
+![Indexed local library](docs/images/05-indexed-library.png)
+
+Ask the Czar a question. Books Czar retrieves the most relevant local passages,
+sends those excerpts to the chat model, and shows cited source context.
+
+![Chat answer with source excerpts](docs/images/06-chat-answer-with-sources.png)
+
 ## Local Books Folder
 
 By default, Books Czar scans `./books` recursively. You can change that with
