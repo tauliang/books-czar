@@ -36,6 +36,41 @@ class FakeLMStudioClient:
     async def chat(self, system_prompt: str, user_prompt: str) -> str:
         self.__class__.last_system_prompt = system_prompt
         self.__class__.last_user_prompt = user_prompt
+        if "mastery assessment designer" in system_prompt:
+            return (
+                '{ "title": "Mastery Quiz: Local Strategy", "questions": ['
+                '{ "id": "q1", "prompt": "What should leaders use?", "choices": ['
+                '{"id": "A", "text": "Cited local evidence", "correct": true},'
+                '{"id": "B", "text": "Uncited guesses", "correct": false},'
+                '{"id": "C", "text": "No sources", "correct": false},'
+                '{"id": "D", "text": "Ad hoc memory", "correct": false}'
+                '], "explanation": "The excerpt supports cited local evidence.", "citations": ["S1"] },'
+                '{ "id": "q2", "prompt": "What should be measured?", "choices": ['
+                '{"id": "A", "text": "Adoption goals", "correct": true},'
+                '{"id": "B", "text": "Nothing", "correct": false},'
+                '{"id": "C", "text": "Rumors", "correct": false},'
+                '{"id": "D", "text": "Guesswork", "correct": false}'
+                '], "explanation": "The excerpt mentions measurable adoption goals.", "citations": ["S1"] },'
+                '{ "id": "q3", "prompt": "What reduces risk?", "choices": ['
+                '{"id": "A", "text": "Governance controls", "correct": true},'
+                '{"id": "B", "text": "Ignoring controls", "correct": false},'
+                '{"id": "C", "text": "Deleting evidence", "correct": false},'
+                '{"id": "D", "text": "Avoiding review", "correct": false}'
+                '], "explanation": "Governance controls are named in the excerpt.", "citations": ["S1"] },'
+                '{ "id": "q4", "prompt": "What should strategy align with?", "choices": ['
+                '{"id": "A", "text": "Local evidence", "correct": true},'
+                '{"id": "B", "text": "No context", "correct": false},'
+                '{"id": "C", "text": "Unverified claims", "correct": false},'
+                '{"id": "D", "text": "Random prompts", "correct": false}'
+                '], "explanation": "The excerpt says strategy should align with local evidence.", "citations": ["S1"] },'
+                '{ "id": "q5", "prompt": "What knowledge source is tested?", "choices": ['
+                '{"id": "A", "text": "Indexed local books", "correct": true},'
+                '{"id": "B", "text": "External posts only", "correct": false},'
+                '{"id": "C", "text": "Unstored chats", "correct": false},'
+                '{"id": "D", "text": "Empty notes", "correct": false}'
+                '], "explanation": "The workflow uses indexed local books.", "citations": ["S1"] }'
+                '] }'
+            )
         if "Board Brief" in system_prompt:
             return (
                 "## Executive Takeaway\n"

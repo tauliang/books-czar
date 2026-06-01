@@ -34,6 +34,46 @@ class FakeLMStudioClient:
     async def chat(self, system_prompt: str, user_prompt: str) -> str:
         self.__class__.last_system_prompt = system_prompt
         self.__class__.last_user_prompt = user_prompt
+        if "mastery assessment designer" in system_prompt:
+            return (
+                '{ "title": "Mastery Quiz: Local Strategy", "questions": ['
+                '{ "id": "q1", "prompt": "What should leaders use for strategy research?",'
+                '"choices": ['
+                '{"id": "A", "text": "A private RAG library with cited local context", "correct": true},'
+                '{"id": "B", "text": "Uncited public guesses", "correct": false},'
+                '{"id": "C", "text": "A spreadsheet with no sources", "correct": false},'
+                '{"id": "D", "text": "Only memory from meetings", "correct": false}'
+                '], "explanation": "The excerpt supports private RAG with citations.", "citations": ["S1"] },'
+                '{ "id": "q2", "prompt": "What practice improves trust in answers?",'
+                '"choices": ['
+                '{"id": "A", "text": "Careful source citations", "correct": true},'
+                '{"id": "B", "text": "Removing evidence", "correct": false},'
+                '{"id": "C", "text": "Ignoring local books", "correct": false},'
+                '{"id": "D", "text": "Avoiding review", "correct": false}'
+                '], "explanation": "The excerpt emphasizes source citations.", "citations": ["S1"] },'
+                '{ "id": "q3", "prompt": "What should executives prioritize?",'
+                '"choices": ['
+                '{"id": "A", "text": "Governed local evidence reuse", "correct": true},'
+                '{"id": "B", "text": "Unmanaged leakage", "correct": false},'
+                '{"id": "C", "text": "No measurement", "correct": false},'
+                '{"id": "D", "text": "Discarding knowledge", "correct": false}'
+                '], "explanation": "The excerpt points to governed local strategy research.", "citations": ["S1"] },'
+                '{ "id": "q4", "prompt": "What makes the workflow local?",'
+                '"choices": ['
+                '{"id": "A", "text": "Indexed local content", "correct": true},'
+                '{"id": "B", "text": "External-only search", "correct": false},'
+                '{"id": "C", "text": "Anonymous web snippets", "correct": false},'
+                '{"id": "D", "text": "No book storage", "correct": false}'
+                '], "explanation": "The material is retrieved from indexed local content.", "citations": ["S1"] },'
+                '{ "id": "q5", "prompt": "Why cite sources?",'
+                '"choices": ['
+                '{"id": "A", "text": "To verify claims against book excerpts", "correct": true},'
+                '{"id": "B", "text": "To hide provenance", "correct": false},'
+                '{"id": "C", "text": "To make answers longer", "correct": false},'
+                '{"id": "D", "text": "To avoid accountability", "correct": false}'
+                '], "explanation": "Citations connect claims to retrieved excerpts.", "citations": ["S1"] }'
+                '] }'
+            )
         if "Board Brief" in system_prompt:
             return (
                 "## Executive Takeaway\n"
@@ -222,3 +262,61 @@ def test_synthesis_api_creates_lists_reads_and_deletes_saved_brief(api_client, m
     deleted = api_client.delete(f"/api/syntheses/{payload['id']}")
     assert deleted.status_code == 200
     assert api_client.get(f"/api/syntheses/{payload['id']}").status_code == 404
+
+
+def test_quiz_api_creates_scores_and_exports_certificate(api_client, monkeypatch):
+    import backend.storage as storage
+
+    monkeypatch.setattr(storage, "LMStudioClient", FakeLMStudioClient)
+
+    upload = api_client.post(
+        "/api/books/upload",
+        files={
+            "files": (
+                "mastery-strategy.txt",
+                b"Executive leaders need private RAG strategy research with careful source citations.",
+                "text/plain",
+            )
+        },
+    )
+    assert upload.status_code == 200
+    indexed = api_client.post("/api/index", json={"book_ids": None})
+    assert indexed.status_code == 200
+
+    created = api_client.post("/api/quizzes", json={"book_ids": None, "question_count": 5})
+
+    assert created.status_code == 200
+    quiz = created.json()
+    assert quiz["status"] == "complete"
+    assert quiz["title"] == "Mastery Quiz: Local Strategy"
+    assert len(quiz["questions"]) == 5
+    assert "correct" not in quiz["questions"][0]["choices"][0]
+    assert "exactly 4 choices" in FakeLMStudioClient.last_user_prompt
+    assert "Exactly 1 choice must have correct=true" in FakeLMStudioClient.last_user_prompt
+
+    fetched = api_client.get(f"/api/quizzes/{quiz['id']}")
+    assert fetched.status_code == 200
+    assert "correct" not in fetched.json()["questions"][0]["choices"][0]
+
+    attempt = api_client.post(
+        f"/api/quizzes/{quiz['id']}/attempts",
+        json={
+            "learner_name": "Ada Lovelace",
+            "answers": {f"q{index}": "A" for index in range(1, 6)},
+        },
+    )
+    assert attempt.status_code == 200
+    attempt_payload = attempt.json()
+    assert attempt_payload["score"] == 100.0
+    assert attempt_payload["passed"] is True
+    assert attempt_payload["results"][0]["correct_choice_id"] == "A"
+
+    attempts = api_client.get(f"/api/quizzes/{quiz['id']}/attempts")
+    assert attempts.status_code == 200
+    assert attempts.json()[0]["id"] == attempt_payload["id"]
+
+    certificate = api_client.get(f"/api/quiz-attempts/{attempt_payload['id']}/certificate")
+    assert certificate.status_code == 200
+    assert certificate.headers["content-type"] == "application/pdf"
+    assert certificate.headers["content-disposition"].endswith(".pdf\"")
+    assert certificate.content.startswith(b"%PDF")

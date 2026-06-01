@@ -4,6 +4,10 @@ import type {
   ChatResponse,
   Health,
   ModelCatalog,
+  QuizAttempt,
+  QuizAttemptRequest,
+  QuizCreateRequest,
+  QuizRun,
   SynthesisRequest,
   SynthesisRun
 } from "./types";
@@ -117,5 +121,22 @@ export const api = {
   exportSynthesisWord: (id: string) =>
     requestDownload(`/api/syntheses/${id}/word`, "books-czar-board-brief.docx"),
   deleteSynthesis: (id: string) =>
-    request<{ ok: boolean }>(`/api/syntheses/${id}`, { method: "DELETE" })
+    request<{ ok: boolean }>(`/api/syntheses/${id}`, { method: "DELETE" }),
+  quizzes: () => request<QuizRun[]>("/api/quizzes"),
+  quiz: (id: string) => request<QuizRun>(`/api/quizzes/${id}`),
+  createQuiz: (payload: QuizCreateRequest) =>
+    request<QuizRun>("/api/quizzes", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  deleteQuiz: (id: string) =>
+    request<{ ok: boolean }>(`/api/quizzes/${id}`, { method: "DELETE" }),
+  quizAttempts: (quizId: string) => request<QuizAttempt[]>(`/api/quizzes/${quizId}/attempts`),
+  submitQuizAttempt: (quizId: string, payload: QuizAttemptRequest) =>
+    request<QuizAttempt>(`/api/quizzes/${quizId}/attempts`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  exportCertificate: (attemptId: string) =>
+    requestDownload(`/api/quiz-attempts/${attemptId}/certificate`, "books-czar-certificate.pdf")
 };

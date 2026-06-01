@@ -30,12 +30,14 @@ import type {
   ChatMessage,
   Health,
   ModelCatalog,
+  QuizAttempt,
+  QuizRun,
   SynthesisAudience,
   SynthesisLens,
   SynthesisRun
 } from "./types";
 
-type Panel = "library" | "import" | "synthesis" | "settings";
+type Panel = "library" | "import" | "synthesis" | "mastery" | "settings";
 
 interface SynthesisFormState {
   objective: string;
@@ -66,6 +68,14 @@ export default function App() {
   const [settings, setSettings] = useState<AppSettings>(emptySettings);
   const [syntheses, setSyntheses] = useState<SynthesisRun[]>([]);
   const [activeSynthesis, setActiveSynthesis] = useState<SynthesisRun | null>(null);
+  const [quizzes, setQuizzes] = useState<QuizRun[]>([]);
+  const [activeQuiz, setActiveQuiz] = useState<QuizRun | null>(null);
+  const [quizAttempts, setQuizAttempts] = useState<QuizAttempt[]>([]);
+  const [activeAttempt, setActiveAttempt] = useState<QuizAttempt | null>(null);
+  const [learnerName, setLearnerName] = useState("");
+  const [questionCount, setQuestionCount] = useState<5 | 10 | 15 | 20>(10);
+  const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
+  const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
   const [synthesisForm, setSynthesisForm] = useState<SynthesisFormState>({
     objective: "",
     audience: "c_suite",
@@ -104,6 +114,7 @@ export default function App() {
     [selectedBooks]
   );
   const synthesisScopeCount = selectedIds.length ? selectedIndexedIds.length : indexedBooks;
+  const masteryScopeCount = selectedIds.length ? selectedIndexedIds.length : indexedBooks;
 
   useEffect(() => {
     void refreshAll();
@@ -118,22 +129,48 @@ export default function App() {
     });
   }, [activeSynthesis, synthesisForm.objective]);
 
+  useEffect(() => {
+    if (!activeQuiz) {
+      setQuizAttempts([]);
+      return;
+    }
+    void api.quizAttempts(activeQuiz.id)
+      .then((attempts) => {
+        setQuizAttempts(attempts);
+        setActiveAttempt((current) =>
+          current ? attempts.find((attempt) => attempt.id === current.id) ?? current : attempts[0] ?? null
+        );
+        if (attempts[0] && !learnerName.trim()) {
+          setLearnerName(attempts[0].learner_name);
+        }
+        if (questionCountOptions.includes(activeQuiz.question_count as 5 | 10 | 15 | 20)) {
+          setQuestionCount(activeQuiz.question_count as 5 | 10 | 15 | 20);
+        }
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : String(err)));
+  }, [activeQuiz?.id]);
+
   async function refreshAll() {
     setError(null);
-    const [bookRows, healthRow, settingRow, modelRows, synthesisRows] = await Promise.all([
+    const [bookRows, healthRow, settingRow, modelRows, synthesisRows, quizRows] = await Promise.all([
       api.books(),
       api.health(),
       api.settings(),
       api.models(),
-      api.syntheses()
+      api.syntheses(),
+      api.quizzes()
     ]);
     setBooks(bookRows);
     setHealth(healthRow);
     setSettings(settingRow);
     setModelCatalog(modelRows);
     setSyntheses(synthesisRows);
+    setQuizzes(quizRows);
     setActiveSynthesis((current) =>
       current ? synthesisRows.find((run) => run.id === current.id) ?? synthesisRows[0] ?? null : synthesisRows[0] ?? null
+    );
+    setActiveQuiz((current) =>
+      current ? quizRows.find((run) => run.id === current.id) ?? quizRows[0] ?? null : quizRows[0] ?? null
     );
   }
 
@@ -277,6 +314,70 @@ export default function App() {
     });
   }
 
+  async function handleCreateQuiz(event: FormEvent) {
+    event.preventDefault();
+    await runTask("generating quiz", async () => {
+      const quiz = await api.createQuiz({
+        question_count: questionCount,
+        book_ids: selectedIds.length ? selectedIndexedIds : null
+      });
+      setActiveQuiz(quiz);
+      setQuizzes((current) => [quiz, ...current.filter((run) => run.id !== quiz.id)]);
+      setQuizAnswers({});
+      setActiveAttempt(null);
+      setActiveQuestionIndex(0);
+      setNotice("Mastery quiz saved");
+      await refreshAll();
+    });
+  }
+
+  async function handleOpenQuiz(quizId: string) {
+    await runTask("loading quiz", async () => {
+      const quiz = await api.quiz(quizId);
+      setActiveQuiz(quiz);
+      setQuizAnswers({});
+      setActiveAttempt(null);
+      setActiveQuestionIndex(0);
+      const attempts = await api.quizAttempts(quizId);
+      setQuizAttempts(attempts);
+      setActiveAttempt(attempts[0] ?? null);
+    });
+  }
+
+  async function handleDeleteQuiz(quizId: string) {
+    await runTask("deleting quiz", async () => {
+      await api.deleteQuiz(quizId);
+      setQuizzes((current) => {
+        const remaining = current.filter((run) => run.id !== quizId);
+        setActiveQuiz((active) => (active?.id === quizId ? remaining[0] ?? null : active));
+        return remaining;
+      });
+      setActiveAttempt(null);
+      setQuizAnswers({});
+      await refreshAll();
+    });
+  }
+
+  async function handleSubmitQuiz() {
+    if (!activeQuiz || !learnerName.trim()) return;
+    await runTask("scoring quiz", async () => {
+      const attempt = await api.submitQuizAttempt(activeQuiz.id, {
+        learner_name: learnerName.trim(),
+        answers: quizAnswers
+      });
+      setActiveAttempt(attempt);
+      setQuizAttempts((current) => [attempt, ...current.filter((row) => row.id !== attempt.id)]);
+      setNotice(attempt.passed ? "Mastery achieved" : "Attempt saved");
+    });
+  }
+
+  async function handleExportCertificate(attempt: QuizAttempt) {
+    await runTask("exporting certificate", async () => {
+      await api.exportCertificate(attempt.id);
+      setNotice("Certificate downloaded");
+    });
+  }
+
   async function handleChat(event: FormEvent) {
     event.preventDefault();
     const text = query.trim();
@@ -334,6 +435,10 @@ export default function App() {
           <button className={panel === "synthesis" ? "active" : ""} onClick={() => setPanel("synthesis")}>
             <ClipboardList size={16} />
             Synthesis
+          </button>
+          <button className={panel === "mastery" ? "active" : ""} onClick={() => setPanel("mastery")}>
+            <CheckCircle2 size={16} />
+            Mastery
           </button>
           <button className={panel === "settings" ? "active" : ""} onClick={() => setPanel("settings")}>
             <Settings size={16} />
@@ -582,6 +687,89 @@ export default function App() {
             </div>
           )}
 
+          {panel === "mastery" && (
+            <div className="synthesisGrid">
+              <form className="synthesisForm" onSubmit={(event) => void handleCreateQuiz(event)}>
+                <div className="toolPanelHeader">
+                  <CheckCircle2 size={18} />
+                  <h3>Mastery Quiz</h3>
+                </div>
+                <label>
+                  Learner name
+                  <input
+                    value={learnerName}
+                    onChange={(event) => setLearnerName(event.target.value)}
+                    placeholder="Name for certificate"
+                  />
+                </label>
+                <label>
+                  Questions
+                  <select
+                    value={questionCount}
+                    onChange={(event) => setQuestionCount(Number(event.target.value) as 5 | 10 | 15 | 20)}
+                  >
+                    {questionCountOptions.map((count) => (
+                      <option key={count} value={count}>
+                        {count} questions
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="scopeSummary">
+                  <span>Scope</span>
+                  <strong>
+                    {masteryScopeCount
+                      ? `${masteryScopeCount} indexed title${masteryScopeCount === 1 ? "" : "s"}`
+                      : "No indexed titles"}
+                  </strong>
+                </div>
+                <button
+                  className="primaryButton"
+                  type="submit"
+                  disabled={busy === "generating quiz" || !masteryScopeCount}
+                >
+                  {busy === "generating quiz" ? <Loader2 className="spin" size={17} /> : <CheckCircle2 size={17} />}
+                  Generate Quiz
+                </button>
+              </form>
+
+              <div className="historyPanel">
+                <div className="toolPanelHeader">
+                  <History size={18} />
+                  <h3>Saved Quizzes</h3>
+                </div>
+                {quizzes.length === 0 ? (
+                  <CompactEmpty label="No saved quizzes" />
+                ) : (
+                  <div className="synthesisHistory">
+                    {quizzes.map((quiz) => (
+                      <article
+                        key={quiz.id}
+                        className={`synthesisRun ${activeQuiz?.id === quiz.id ? "active" : ""}`}
+                      >
+                        <button type="button" onClick={() => void handleOpenQuiz(quiz.id)}>
+                          <strong>{quiz.title}</strong>
+                          <span>
+                            {quiz.question_count} questions · {quiz.book_ids.length} title
+                            {quiz.book_ids.length === 1 ? "" : "s"}
+                          </span>
+                          <span>{formatDate(quiz.created_at)} · {quiz.status}</span>
+                        </button>
+                        <button
+                          className="iconButton danger"
+                          title="Delete quiz"
+                          onClick={() => void handleDeleteQuiz(quiz.id)}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {panel === "settings" && (
             <form className="settingsForm" onSubmit={(event) => void handleSaveSettings(event)}>
               <label>
@@ -718,6 +906,76 @@ export default function App() {
                   ) : null}
                 </>
               )}
+            </div>
+          </section>
+        ) : panel === "mastery" ? (
+          <section className="chatPane synthesisDetail">
+            <div className="chatHeader">
+              <div>
+                <h2>Knowledge Check</h2>
+                <span>
+                  {activeQuiz
+                    ? `${activeQuiz.question_count} questions · pass ${activeQuiz.passing_score.toFixed(0)}%`
+                    : "No quiz selected"}
+                </span>
+              </div>
+              <CheckCircle2 size={20} />
+            </div>
+
+            <div className="briefStack">
+              {!activeQuiz ? (
+                <div className="chatEmpty">
+                  <CheckCircle2 size={24} />
+                  <span>No saved quiz selected</span>
+                </div>
+              ) : activeQuiz.error ? (
+                <div className="notice error">{activeQuiz.error}</div>
+              ) : activeAttempt ? (
+                <QuizResultView
+                  attempt={activeAttempt}
+                  passingScore={activeQuiz.passing_score}
+                  onRetake={() => {
+                    setActiveAttempt(null);
+                    setQuizAnswers({});
+                    setActiveQuestionIndex(0);
+                  }}
+                  onDownload={() => void handleExportCertificate(activeAttempt)}
+                  exporting={busy === "exporting certificate"}
+                />
+              ) : (
+                <QuizPlayer
+                  quiz={activeQuiz}
+                  learnerName={learnerName}
+                  answers={quizAnswers}
+                  activeIndex={activeQuestionIndex}
+                  busy={busy === "scoring quiz"}
+                  onAnswer={(questionId, choiceId) =>
+                    setQuizAnswers((current) => ({ ...current, [questionId]: choiceId }))
+                  }
+                  onMove={setActiveQuestionIndex}
+                  onSubmit={() => void handleSubmitQuiz()}
+                />
+              )}
+              {quizAttempts.length ? (
+                <div className="attemptHistory">
+                  <div className="sourceHeader">
+                    <strong>Attempt History</strong>
+                    <span>{quizAttempts.length} saved</span>
+                  </div>
+                  {quizAttempts.map((attempt) => (
+                    <button
+                      type="button"
+                      key={attempt.id}
+                      className={`attemptRow ${activeAttempt?.id === attempt.id ? "active" : ""}`}
+                      onClick={() => setActiveAttempt(attempt)}
+                    >
+                      <span>{attempt.learner_name}</span>
+                      <strong>{attempt.score.toFixed(1)}%</strong>
+                      <span>{attempt.passed ? "Passed" : "Needs review"} · {formatDate(attempt.created_at)}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
           </section>
         ) : (
@@ -867,6 +1125,147 @@ function BuildingBriefStatus() {
   );
 }
 
+function QuizPlayer({
+  quiz,
+  learnerName,
+  answers,
+  activeIndex,
+  busy,
+  onAnswer,
+  onMove,
+  onSubmit
+}: {
+  quiz: QuizRun;
+  learnerName: string;
+  answers: Record<string, string>;
+  activeIndex: number;
+  busy: boolean;
+  onAnswer: (questionId: string, choiceId: string) => void;
+  onMove: (index: number) => void;
+  onSubmit: () => void;
+}) {
+  const question = quiz.questions[activeIndex];
+  const answered = quiz.questions.filter((item) => answers[item.id]).length;
+  const complete = answered === quiz.questions.length;
+  if (!question) {
+    return <CompactEmpty label="This quiz has no questions" />;
+  }
+  return (
+    <article className="quizCard">
+      <div className="quizProgress">
+        <span>Question {activeIndex + 1} of {quiz.questions.length}</span>
+        <strong>{answered}/{quiz.questions.length} answered</strong>
+      </div>
+      <div className="quizPrompt">
+        <h3>{question.prompt}</h3>
+        {question.citations.length ? <span>{question.citations.join(", ")}</span> : null}
+      </div>
+      <div className="choiceGrid">
+        {question.choices.map((choice) => (
+          <button
+            type="button"
+            key={choice.id}
+            className={answers[question.id] === choice.id ? "selected" : ""}
+            onClick={() => onAnswer(question.id, choice.id)}
+          >
+            <strong>{choice.id}</strong>
+            <span>{choice.text}</span>
+          </button>
+        ))}
+      </div>
+      <div className="quizActions">
+        <button
+          type="button"
+          className="secondaryButton"
+          onClick={() => onMove(Math.max(activeIndex - 1, 0))}
+          disabled={activeIndex === 0}
+        >
+          Previous
+        </button>
+        {activeIndex < quiz.questions.length - 1 ? (
+          <button
+            type="button"
+            className="secondaryButton"
+            onClick={() => onMove(Math.min(activeIndex + 1, quiz.questions.length - 1))}
+          >
+            Next
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="primaryButton"
+            onClick={onSubmit}
+            disabled={busy || !complete || !learnerName.trim()}
+          >
+            {busy ? <Loader2 className="spin" size={17} /> : <CheckCircle2 size={17} />}
+            Submit
+          </button>
+        )}
+      </div>
+      {!learnerName.trim() ? <div className="compactNote">Enter a learner name to submit for a certificate.</div> : null}
+    </article>
+  );
+}
+
+function QuizResultView({
+  attempt,
+  passingScore,
+  exporting,
+  onRetake,
+  onDownload
+}: {
+  attempt: QuizAttempt;
+  passingScore: number;
+  exporting: boolean;
+  onRetake: () => void;
+  onDownload: () => void;
+}) {
+  const missed = attempt.results.filter((result) => !result.correct);
+  return (
+    <article className={`quizResult ${attempt.passed ? "passed" : "failed"}`}>
+      <div className="quizScore">
+        <span>{attempt.passed ? "Mastery achieved" : "Review recommended"}</span>
+        <strong>{attempt.score.toFixed(1)}%</strong>
+        <p>{attempt.learner_name} · passing score {passingScore.toFixed(0)}%</p>
+      </div>
+      <div className="quizActions">
+        <button type="button" className="secondaryButton" onClick={onRetake}>
+          Retake
+        </button>
+        {attempt.passed ? (
+          <button
+            type="button"
+            className="primaryButton"
+            onClick={onDownload}
+            disabled={exporting}
+          >
+            {exporting ? <Loader2 className="spin" size={17} /> : <Download size={17} />}
+            Certificate
+          </button>
+        ) : null}
+      </div>
+      <div className="reviewList">
+        {(missed.length ? missed : attempt.results).map((result) => {
+          const selected = result.choices.find((choice) => choice.id === result.selected_choice_id);
+          const correct = result.choices.find((choice) => choice.id === result.correct_choice_id);
+          return (
+            <section key={result.question_id} className={result.correct ? "correct" : "missed"}>
+              <h3>{result.prompt}</h3>
+              <p>
+                Your answer: {selected ? `${selected.id}. ${selected.text}` : "No answer"}
+              </p>
+              <p>
+                Correct answer: {correct?.id}. {correct?.text}
+              </p>
+              <p>{result.explanation}</p>
+            </section>
+          );
+        })}
+      </div>
+    </article>
+  );
+}
+
 function BriefAtAGlance({ run }: { run: SynthesisRun }) {
   return (
     <div className={`briefGlance ${run.status}`}>
@@ -960,13 +1359,14 @@ function BriefSectionView({ section, subtle = false }: { section: { title: strin
 function panelTitle(panel: Panel) {
   if (panel === "import") return "Import";
   if (panel === "synthesis") return "Synthesis";
+  if (panel === "mastery") return "Mastery";
   if (panel === "settings") return "Settings";
   return "Library";
 }
 
 function initialPanel(): Panel {
   const hash = window.location.hash.replace("#", "");
-  return hash === "import" || hash === "synthesis" || hash === "settings" ? hash : "library";
+  return hash === "import" || hash === "synthesis" || hash === "mastery" || hash === "settings" ? hash : "library";
 }
 
 function parseDirectUrls(value: string): Array<{ title?: string; url: string }> {
@@ -1005,6 +1405,8 @@ const lensOptions: Array<{ value: SynthesisLens; label: string }> = [
   { value: "investment", label: "Investment" },
   { value: "talent_change", label: "Talent/Change" }
 ];
+
+const questionCountOptions: Array<5 | 10 | 15 | 20> = [5, 10, 15, 20];
 
 function formatAudience(value: SynthesisAudience) {
   return audienceOptions.find((option) => option.value === value)?.label ?? value;

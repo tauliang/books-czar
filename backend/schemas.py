@@ -115,6 +115,63 @@ class SynthesisRunOut(BaseModel):
     updated_at: str
 
 
+class QuizCreateRequest(BaseModel):
+    book_ids: list[str] | None = None
+    question_count: Literal[5, 10, 15, 20] = 10
+
+
+class QuizChoiceOut(BaseModel):
+    id: str
+    text: str
+
+
+class QuizQuestionOut(BaseModel):
+    id: str
+    prompt: str
+    choices: list[QuizChoiceOut]
+    citations: list[str] = Field(default_factory=list)
+
+
+class QuizRunOut(BaseModel):
+    id: str
+    title: str
+    book_ids: list[str] = Field(default_factory=list)
+    question_count: int
+    passing_score: float = 80.0
+    status: str
+    questions: list[QuizQuestionOut] = Field(default_factory=list)
+    error: str | None = None
+    created_at: str
+    updated_at: str
+
+
+class QuizAttemptRequest(BaseModel):
+    learner_name: str = Field(min_length=1)
+    answers: dict[str, str] = Field(default_factory=dict)
+
+
+class QuizQuestionResultOut(BaseModel):
+    question_id: str
+    prompt: str
+    choices: list[QuizChoiceOut]
+    selected_choice_id: str | None = None
+    correct_choice_id: str
+    correct: bool
+    explanation: str
+    citations: list[str] = Field(default_factory=list)
+
+
+class QuizAttemptOut(BaseModel):
+    id: str
+    quiz_id: str
+    learner_name: str
+    answers: dict[str, str] = Field(default_factory=dict)
+    score: float
+    passed: bool
+    results: list[QuizQuestionResultOut] = Field(default_factory=list)
+    created_at: str
+
+
 class HealthResponse(BaseModel):
     ok: bool
     lmstudio_ok: bool

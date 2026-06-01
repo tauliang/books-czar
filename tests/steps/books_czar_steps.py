@@ -157,3 +157,47 @@ def step_word_export_should_be_docx(context):
     )
     assert context.word_export.headers["content-disposition"].endswith(".docx\"")
     assert context.word_export.content.startswith(b"PK")
+
+
+@when("I generate a {question_count:d} question mastery quiz")
+def step_generate_mastery_quiz(context, question_count: int):
+    context.response = context.client.post(
+        "/api/quizzes",
+        json={"book_ids": None, "question_count": question_count},
+    )
+    assert context.response.status_code == 200
+    context.quiz_result = context.response.json()
+    assert len(context.quiz_result["questions"]) == question_count
+
+
+@when('I answer every mastery question correctly as "{learner_name}"')
+def step_answer_mastery_quiz_correctly(context, learner_name: str):
+    answers = {question["id"]: "A" for question in context.quiz_result["questions"]}
+    context.response = context.client.post(
+        f"/api/quizzes/{context.quiz_result['id']}/attempts",
+        json={"learner_name": learner_name, "answers": answers},
+    )
+    assert context.response.status_code == 200
+    context.quiz_attempt = context.response.json()
+
+
+@then("the mastery result should show a passing score")
+def step_mastery_result_should_pass(context):
+    assert context.quiz_attempt["passed"] is True
+    assert context.quiz_attempt["score"] >= 80
+
+
+@when("I export the mastery certificate")
+def step_export_mastery_certificate(context):
+    context.response = context.client.get(
+        f"/api/quiz-attempts/{context.quiz_attempt['id']}/certificate"
+    )
+    assert context.response.status_code == 200
+    context.certificate_export = context.response
+
+
+@then("the certificate should be a PDF file")
+def step_certificate_should_be_pdf(context):
+    assert context.certificate_export.headers["content-type"] == "application/pdf"
+    assert context.certificate_export.headers["content-disposition"].endswith(".pdf\"")
+    assert context.certificate_export.content.startswith(b"%PDF")

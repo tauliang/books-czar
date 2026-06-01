@@ -16,7 +16,19 @@ from .database import db, dict_from_row, utc_now
 from .lmstudio import LMStudioClient
 from .manifest import ManifestItem, parse_manifest_bytes
 from .parsers import SUPPORTED_EXTENSIONS, parse_document
+from .quiz import (
+    PASSING_SCORE,
+    QuizQuestion,
+    build_quiz_prompts,
+    build_quiz_retrieval_questions,
+    parse_quiz_response,
+    questions_from_json,
+    questions_to_json,
+    sanitize_quiz_questions,
+    score_quiz_attempt,
+)
 from .schemas import AppSettings, BookOut, SourceOut
+from .schemas import QuizAttemptOut, QuizAttemptRequest, QuizCreateRequest, QuizRunOut
 from .schemas import SynthesisRequest, SynthesisRunOut
 from .synthesis import (
     build_synthesis_prompts,
@@ -336,6 +348,96 @@ def delete_synthesis_run(run_id: str) -> bool:
     return cursor.rowcount > 0
 
 
+async def create_quiz_run(request: QuizCreateRequest) -> QuizRunOut:
+    resolved_book_ids = _indexed_book_ids(request.book_ids)
+    run_id = _insert_quiz_run("Mastery Quiz", request.question_count, resolved_book_ids)
+    try:
+        sources = await _retrieve_quiz_sources(resolved_book_ids)
+        if not sources:
+            raise ValueError("Index one or more books before creating a quiz.")
+        title, questions = await _generate_quiz_questions(request.question_count, sources)
+        _update_quiz_run(run_id, title, "complete", questions, None)
+    except Exception as exc:
+        _update_quiz_run(run_id, "Mastery Quiz", "error", [], str(exc))
+        raise
+    quiz = get_quiz_run(run_id)
+    if quiz is None:
+        raise ValueError("Quiz run could not be loaded")
+    return quiz
+
+
+def list_quiz_runs() -> list[QuizRunOut]:
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM quiz_runs ORDER BY created_at DESC, title"
+        ).fetchall()
+    return [_quiz_from_row(row) for row in rows]
+
+
+def get_quiz_run(quiz_id: str) -> QuizRunOut | None:
+    with db() as conn:
+        row = conn.execute("SELECT * FROM quiz_runs WHERE id = ?", (quiz_id,)).fetchone()
+    return _quiz_from_row(row) if row else None
+
+
+def delete_quiz_run(quiz_id: str) -> bool:
+    with db() as conn:
+        cursor = conn.execute("DELETE FROM quiz_runs WHERE id = ?", (quiz_id,))
+    return cursor.rowcount > 0
+
+
+def create_quiz_attempt(quiz_id: str, request: QuizAttemptRequest) -> QuizAttemptOut:
+    quiz, questions = _load_quiz_with_answers(quiz_id)
+    if quiz is None:
+        raise ValueError("Quiz not found")
+    if quiz.status != "complete" or not questions:
+        raise ValueError("Quiz is not ready for attempts.")
+    learner_name = re.sub(r"\s+", " ", request.learner_name).strip()
+    if not learner_name:
+        raise ValueError("Learner name is required.")
+    score, passed, results = score_quiz_attempt(questions, request.answers, quiz.passing_score)
+    attempt_id = uuid.uuid4().hex
+    now = utc_now()
+    with db() as conn:
+        conn.execute(
+            """
+            INSERT INTO quiz_attempts(
+                id, quiz_id, learner_name, answers, score, passed, results, created_at
+            )
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                attempt_id,
+                quiz_id,
+                learner_name,
+                json.dumps(request.answers),
+                score,
+                1 if passed else 0,
+                json.dumps([result.model_dump() for result in results]),
+                now,
+            ),
+        )
+    attempt = get_quiz_attempt(attempt_id)
+    if attempt is None:
+        raise ValueError("Quiz attempt could not be loaded")
+    return attempt
+
+
+def list_quiz_attempts(quiz_id: str) -> list[QuizAttemptOut]:
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM quiz_attempts WHERE quiz_id = ? ORDER BY created_at DESC",
+            (quiz_id,),
+        ).fetchall()
+    return [_quiz_attempt_from_row(row) for row in rows]
+
+
+def get_quiz_attempt(attempt_id: str) -> QuizAttemptOut | None:
+    with db() as conn:
+        row = conn.execute("SELECT * FROM quiz_attempts WHERE id = ?", (attempt_id,)).fetchone()
+    return _quiz_attempt_from_row(row) if row else None
+
+
 def counts() -> tuple[int, int]:
     with db() as conn:
         book_count = conn.execute("SELECT COUNT(*) FROM books").fetchone()[0]
@@ -504,6 +606,36 @@ async def _generate_synthesis_markdown(
     return await lmstudio.chat(system_prompt, user_prompt)
 
 
+async def _retrieve_quiz_sources(book_ids: list[str]) -> list[SourceOut]:
+    if not book_ids:
+        return []
+    collected: list[SourceOut] = []
+    for question in build_quiz_retrieval_questions():
+        collected.extend(await retrieve_sources(question, 4, book_ids))
+    return dedupe_synthesis_sources(collected, limit=20)
+
+
+async def _generate_quiz_questions(
+    question_count: int,
+    sources: list[SourceOut],
+) -> tuple[str, list[QuizQuestion]]:
+    settings = get_app_settings()
+    lmstudio = LMStudioClient(settings)
+    system_prompt, user_prompt = build_quiz_prompts(question_count, sources)
+    last_error: Exception | None = None
+    for _ in range(2):
+        response = await lmstudio.chat(system_prompt, user_prompt)
+        try:
+            return parse_quiz_response(response, question_count)
+        except Exception as exc:  # noqa: BLE001 - retry invalid model JSON once.
+            last_error = exc
+            user_prompt = (
+                f"{user_prompt}\n\nYour previous response was invalid: {exc}. "
+                "Return corrected strict JSON only."
+            )
+    raise ValueError(f"Quiz response failed validation: {last_error}")
+
+
 def _indexed_book_ids(book_ids: list[str] | None) -> list[str]:
     params: list[Any] = []
     where = ""
@@ -601,6 +733,85 @@ def _synthesis_title(objective: str) -> str:
     if not clean:
         return "Executive Synthesis"
     return clean if len(clean) <= 72 else f"{clean[:72].rsplit(' ', 1)[0]}..."
+
+
+def _insert_quiz_run(title: str, question_count: int, book_ids: list[str]) -> str:
+    run_id = uuid.uuid4().hex
+    now = utc_now()
+    with db() as conn:
+        conn.execute(
+            """
+            INSERT INTO quiz_runs(
+                id, title, book_ids, question_count, passing_score, status,
+                questions, error, created_at, updated_at
+            )
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                run_id,
+                title,
+                json.dumps(book_ids),
+                question_count,
+                PASSING_SCORE,
+                "running",
+                "[]",
+                None,
+                now,
+                now,
+            ),
+        )
+    return run_id
+
+
+def _update_quiz_run(
+    run_id: str,
+    title: str,
+    status: str,
+    questions: list[QuizQuestion],
+    error: str | None,
+) -> None:
+    with db() as conn:
+        conn.execute(
+            """
+            UPDATE quiz_runs
+            SET title = ?, status = ?, questions = ?, error = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                title,
+                status,
+                questions_to_json(questions),
+                error,
+                utc_now(),
+                run_id,
+            ),
+        )
+
+
+def _quiz_from_row(row: Any) -> QuizRunOut:
+    values = dict_from_row(row)
+    questions = questions_from_json(values.pop("questions") or "[]")
+    values["book_ids"] = json.loads(values["book_ids"] or "[]")
+    values["questions"] = sanitize_quiz_questions(questions)
+    return QuizRunOut(**values)
+
+
+def _quiz_attempt_from_row(row: Any) -> QuizAttemptOut:
+    values = dict_from_row(row)
+    values["answers"] = json.loads(values["answers"] or "{}")
+    values["passed"] = bool(values["passed"])
+    values["results"] = json.loads(values["results"] or "[]")
+    return QuizAttemptOut(**values)
+
+
+def _load_quiz_with_answers(quiz_id: str) -> tuple[QuizRunOut | None, list[QuizQuestion]]:
+    with db() as conn:
+        row = conn.execute("SELECT * FROM quiz_runs WHERE id = ?", (quiz_id,)).fetchone()
+    if row is None:
+        return None, []
+    questions = questions_from_json(row["questions"] or "[]")
+    quiz = _quiz_from_row(row)
+    return quiz, questions
 
 
 def _cosine_similarity(left: list[float], right: list[float]) -> float:

@@ -49,3 +49,17 @@ Feature: Books Czar local RAG workflows
     And the synthesis should cite a source titled "Board Strategy"
     When I export the synthesis to Word
     Then the Word export should be a docx file
+
+  Scenario: Pass a mastery quiz and download a certificate
+    Given a clean Books Czar workspace
+    And the books folder contains "mastery-strategy.txt" with:
+      """
+      The executive team should align AI strategy with local evidence, governance controls, and measurable adoption goals.
+      """
+    When I scan the books folder
+    And I index the library
+    And I generate a 5 question mastery quiz
+    And I answer every mastery question correctly as "Ada Lovelace"
+    Then the mastery result should show a passing score
+    When I export the mastery certificate
+    Then the certificate should be a PDF file

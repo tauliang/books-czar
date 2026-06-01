@@ -139,6 +139,19 @@ circulation, or board-prep notes.
 
 ![Executive synthesis board brief](docs/images/07-synthesis-brief.png)
 
+## Mastery Quizzes
+
+Open Mastery to generate a saved multiple-choice knowledge check from indexed
+books. The quiz uses selected indexed books as its scope; if nothing is
+selected, Books Czar uses all indexed titles. Each question has one correct
+answer, three plausible distractors, and citations back to retrieved book
+evidence.
+
+Enter a learner name before submitting. Attempts are scored locally, and a score
+of `80%` or higher unlocks a downloadable PDF certificate of completion.
+
+![Mastery quiz with certificate result](docs/images/08-mastery-quiz.png)
+
 ## Local Books Folder
 
 By default, Books Czar scans `./books` recursively. You can change that with
@@ -191,6 +204,13 @@ JSON:
 - `GET /api/syntheses/{id}` returns one saved synthesis run.
 - `GET /api/syntheses/{id}/word` exports a saved synthesis run as a Word `.docx`.
 - `DELETE /api/syntheses/{id}` removes one saved synthesis run.
+- `POST /api/quizzes` generates and saves a mastery quiz.
+- `GET /api/quizzes` lists saved mastery quizzes.
+- `GET /api/quizzes/{id}` returns quiz questions without answer keys.
+- `POST /api/quizzes/{id}/attempts` scores and saves a quiz attempt.
+- `GET /api/quizzes/{id}/attempts` lists saved attempts for a quiz.
+- `GET /api/quiz-attempts/{id}/certificate` exports a passed attempt as a PDF.
+- `DELETE /api/quizzes/{id}` removes one quiz and its attempts.
 
 ## Data
 
@@ -216,6 +236,10 @@ The Synthesis workflow uses the same indexed chunks but runs several retrieval
 questions across the selected books, deduplicates repeated passages, and asks the
 local chat model for a structured, citation-backed Board Brief.
 
+The Mastery workflow uses the same indexed chunks to retrieve evidence for quiz
+generation, asks the local chat model for strict four-choice JSON questions, and
+keeps the correct answer key server-side until an attempt is submitted.
+
 ## Tests
 
 Run unit and API tests:
@@ -235,4 +259,11 @@ Run frontend brief parser tests:
 ```bash
 cd frontend
 npm run test:brief
+```
+
+Run the frontend build:
+
+```bash
+cd frontend
+npm run build
 ```

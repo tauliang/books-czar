@@ -19,6 +19,10 @@ from .schemas import (
     LocalScanResult,
     ManifestImportResult,
     ModelListResponse,
+    QuizAttemptOut,
+    QuizAttemptRequest,
+    QuizCreateRequest,
+    QuizRunOut,
     SynthesisRequest,
     SynthesisRunOut,
 )
@@ -26,19 +30,27 @@ from .storage import (
     answer_with_sources,
     attach_file_to_book,
     counts,
+    create_quiz_attempt,
+    create_quiz_run,
     create_synthesis_run,
     delete_book,
+    delete_quiz_run,
     delete_synthesis_run,
+    get_quiz_attempt,
+    get_quiz_run,
     get_synthesis_run,
     get_app_settings,
     import_manifest,
     index_books,
     list_books,
+    list_quiz_attempts,
+    list_quiz_runs,
     list_synthesis_runs,
     save_app_settings,
     save_upload,
     scan_books_folder,
 )
+from .certificates import PDF_MIME_TYPE, build_certificate_pdf, certificate_filename
 from .word_export import WORD_MIME_TYPE, build_synthesis_docx, word_filename
 
 
@@ -228,3 +240,68 @@ async def remove_synthesis(run_id: str):
     if not delete_synthesis_run(run_id):
         raise HTTPException(status_code=404, detail="Synthesis not found")
     return {"ok": True}
+
+
+@app.get("/api/quizzes", response_model=list[QuizRunOut])
+async def read_quizzes() -> list[QuizRunOut]:
+    return list_quiz_runs()
+
+
+@app.post("/api/quizzes", response_model=QuizRunOut)
+async def create_quiz(request: QuizCreateRequest) -> QuizRunOut:
+    try:
+        return await create_quiz_run(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 - LM Studio errors should be readable in the UI.
+        raise HTTPException(status_code=502, detail=f"Quiz request failed: {exc}") from exc
+
+
+@app.get("/api/quizzes/{quiz_id}", response_model=QuizRunOut)
+async def read_quiz(quiz_id: str) -> QuizRunOut:
+    quiz = get_quiz_run(quiz_id)
+    if quiz is None:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+    return quiz
+
+
+@app.delete("/api/quizzes/{quiz_id}")
+async def remove_quiz(quiz_id: str):
+    if not delete_quiz_run(quiz_id):
+        raise HTTPException(status_code=404, detail="Quiz not found")
+    return {"ok": True}
+
+
+@app.post("/api/quizzes/{quiz_id}/attempts", response_model=QuizAttemptOut)
+async def submit_quiz_attempt(quiz_id: str, request: QuizAttemptRequest) -> QuizAttemptOut:
+    try:
+        return create_quiz_attempt(quiz_id, request)
+    except ValueError as exc:
+        status = 404 if str(exc) == "Quiz not found" else 400
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
+
+
+@app.get("/api/quizzes/{quiz_id}/attempts", response_model=list[QuizAttemptOut])
+async def read_quiz_attempts(quiz_id: str) -> list[QuizAttemptOut]:
+    if get_quiz_run(quiz_id) is None:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+    return list_quiz_attempts(quiz_id)
+
+
+@app.get("/api/quiz-attempts/{attempt_id}/certificate")
+async def export_quiz_certificate(attempt_id: str) -> Response:
+    attempt = get_quiz_attempt(attempt_id)
+    if attempt is None:
+        raise HTTPException(status_code=404, detail="Quiz attempt not found")
+    if not attempt.passed:
+        raise HTTPException(status_code=400, detail="Certificate is available only for passed attempts.")
+    quiz = get_quiz_run(attempt.quiz_id)
+    if quiz is None:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+    return Response(
+        content=build_certificate_pdf(quiz, attempt),
+        media_type=PDF_MIME_TYPE,
+        headers={
+            "Content-Disposition": f'attachment; filename="{certificate_filename(attempt.learner_name)}"',
+        },
+    )

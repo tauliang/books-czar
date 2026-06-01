@@ -83,6 +83,63 @@ export interface SynthesisRun {
   updated_at: string;
 }
 
+export interface QuizCreateRequest {
+  book_ids: string[] | null;
+  question_count: 5 | 10 | 15 | 20;
+}
+
+export interface QuizChoice {
+  id: string;
+  text: string;
+}
+
+export interface QuizQuestion {
+  id: string;
+  prompt: string;
+  choices: QuizChoice[];
+  citations: string[];
+}
+
+export interface QuizRun {
+  id: string;
+  title: string;
+  book_ids: string[];
+  question_count: number;
+  passing_score: number;
+  status: string;
+  questions: QuizQuestion[];
+  error?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface QuizAttemptRequest {
+  learner_name: string;
+  answers: Record<string, string>;
+}
+
+export interface QuizQuestionResult {
+  question_id: string;
+  prompt: string;
+  choices: QuizChoice[];
+  selected_choice_id?: string | null;
+  correct_choice_id: string;
+  correct: boolean;
+  explanation: string;
+  citations: string[];
+}
+
+export interface QuizAttempt {
+  id: string;
+  quiz_id: string;
+  learner_name: string;
+  answers: Record<string, string>;
+  score: number;
+  passed: boolean;
+  results: QuizQuestionResult[];
+  created_at: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";

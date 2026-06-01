@@ -86,6 +86,43 @@ def init_db() -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_synthesis_runs_created_at ON synthesis_runs(created_at)"
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS quiz_runs (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                book_ids TEXT NOT NULL,
+                question_count INTEGER NOT NULL,
+                passing_score REAL NOT NULL,
+                status TEXT NOT NULL,
+                questions TEXT NOT NULL,
+                error TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_quiz_runs_created_at ON quiz_runs(created_at)"
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS quiz_attempts (
+                id TEXT PRIMARY KEY,
+                quiz_id TEXT NOT NULL,
+                learner_name TEXT NOT NULL,
+                answers TEXT NOT NULL,
+                score REAL NOT NULL,
+                passed INTEGER NOT NULL,
+                results TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(quiz_id) REFERENCES quiz_runs(id) ON DELETE CASCADE
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_quiz_attempts_quiz_id ON quiz_attempts(quiz_id)"
+        )
 
 
 @contextmanager
