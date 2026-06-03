@@ -124,6 +124,12 @@ sends those excerpts to the chat model, and shows cited source context.
 
 ![Chat answer with source excerpts](docs/images/06-chat-answer-with-sources.png)
 
+Books Czar also supports phone and tablet layouts. On mobile, the app uses a
+compact header, safe-area-aware bottom navigation, stacked task panels, and a
+sticky Ask composer so the main workflows stay reachable on narrow screens.
+
+![Mobile Ask layout](docs/images/09-mobile-ask.png)
+
 ## Executive Synthesis
 
 Open Synthesis to generate a saved Board Brief across indexed books. The guided
@@ -259,6 +265,14 @@ Run frontend brief parser tests:
 ```bash
 cd frontend
 npm run test:brief
+```
+
+Run mobile responsive checks:
+
+```bash
+cd frontend
+npm run test:mobile-css
+npm run test:mobile
 ```
 
 Run the frontend build:

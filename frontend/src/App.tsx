@@ -412,7 +412,11 @@ export default function App() {
   const busyLabel = busy ? busy[0].toUpperCase() + busy.slice(1) : null;
 
   return (
-    <div className="appShell" data-panel={panel}>
+    <div
+      className="appShell"
+      data-panel={panel}
+      data-has-synthesis={activeSynthesis ? "true" : "false"}
+    >
       <aside className="sidebar">
         <div className="brand">
           <div className="brandMark">

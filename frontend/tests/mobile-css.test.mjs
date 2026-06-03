@@ -49,6 +49,20 @@ test("keeps dense evidence readable instead of overwhelming the viewport", () =>
   expectCss("overflow-wrap: anywhere");
 });
 
+test("hardens narrow navigation and metadata wrapping", () => {
+  expectCss("@media (max-width: 360px)");
+  expectCss("font-size: 0");
+  expectCss(".briefGlanceChips span");
+  expectCss("min-width: min(100%, 9rem)");
+  expectCss(".settingsForm select");
+  expectCss("text-overflow: ellipsis");
+});
+
+test("promotes saved synthesis briefs on mobile when a brief is available", () => {
+  expectCss('[data-has-synthesis="true"] .chatPane');
+  expectCss("order: -1");
+});
+
 test("keeps non-chat mobile panels to one main surface", () => {
   expectCss('.appShell[data-panel="library"] .chatPane');
   expectCss('.appShell[data-panel="import"] .chatPane');

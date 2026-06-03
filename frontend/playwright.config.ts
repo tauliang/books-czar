@@ -18,19 +18,22 @@ export default defineConfig({
       name: "iphone-se",
       use: {
         ...devices["iPhone SE"],
+        browserName: "chromium",
         viewport: { width: 320, height: 568 }
       }
     },
     {
       name: "pixel-7",
       use: {
-        ...devices["Pixel 7"]
+        ...devices["Pixel 7"],
+        browserName: "chromium"
       }
     },
     {
       name: "tablet",
       use: {
-        ...devices["iPad Mini"]
+        ...devices["iPad Mini"],
+        browserName: "chromium"
       }
     }
   ]
