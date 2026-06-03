@@ -1,0 +1,623 @@
+/*
+  Books Czar mobile-friendly layer.
+  Keep this imported after styles.css so these rules win the cascade.
+*/
+
+:root {
+  --tap-target: 48px;
+  --mobile-page-padding: 12px;
+  --mobile-card-radius: 12px;
+  --mobile-nav-height: 76px;
+  --mobile-header-height: 112px;
+}
+
+@supports (min-height: 100dvh) {
+  :root {
+    --mobile-viewport-height: 100dvh;
+  }
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+button,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+input,
+select,
+textarea {
+  min-height: 44px;
+  overflow-wrap: anywhere;
+}
+
+.panelTabs button,
+.primaryButton,
+.secondaryButton,
+.iconButton,
+.attachButton,
+.bookSelect,
+.selectedBox button,
+.chatComposer button,
+.choiceGrid button,
+.attemptRow,
+.synthesisRun > button:first-child {
+  min-height: var(--tap-target);
+}
+
+.iconButton,
+.attachButton,
+.bookSelect,
+.chatComposer button {
+  min-width: var(--tap-target);
+  width: var(--tap-target);
+  height: var(--tap-target);
+}
+
+.chatComposer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--tap-target);
+  gap: 10px;
+  padding: 12px 16px;
+  border-top: 1px solid #e3ded3;
+  background: rgba(255, 254, 250, 0.96);
+}
+
+.chatComposer input {
+  min-width: 0;
+}
+
+.chatComposer button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #315b52;
+  border-radius: 10px;
+  color: #ffffff;
+  background: #315b52;
+}
+
+.source,
+.message,
+.toolPanel,
+.synthesisForm,
+.historyPanel,
+.quizCard,
+.quizResult,
+.attemptHistory,
+.briefArtifact,
+.briefGlance,
+.reviewList section {
+  overflow-wrap: anywhere;
+}
+
+.source p,
+.message p,
+.briefSection p,
+.briefCompactSection p,
+.takeawayCallout p,
+.reviewList p,
+.choiceGrid span {
+  line-height: 1.55;
+}
+
+@media (max-width: 1060px) {
+  .appShell {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .libraryPane,
+  .chatPane {
+    min-height: auto;
+  }
+}
+
+@media (max-width: 780px) {
+  body {
+    min-width: 0;
+    background: #f6f4ee;
+  }
+
+  .appShell {
+    display: block;
+    min-height: 100vh;
+    min-height: var(--mobile-viewport-height, 100vh);
+    padding-top: calc(var(--mobile-header-height) + env(safe-area-inset-top));
+    padding-bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom));
+  }
+
+  .sidebar {
+    position: fixed;
+    z-index: 40;
+    top: 0;
+    right: 0;
+    left: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 10px;
+    min-height: var(--mobile-header-height);
+    padding: calc(10px + env(safe-area-inset-top)) var(--mobile-page-padding) 10px;
+    border-right: 0;
+    border-bottom: 1px solid #ddd8cc;
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 8px 24px rgba(54, 49, 38, 0.08);
+  }
+
+  .brand {
+    min-width: 0;
+  }
+
+  .brandMark {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+  }
+
+  .brand h1,
+  .toolbar h2,
+  .chatHeader h2 {
+    font-size: 1rem;
+  }
+
+  .brand span,
+  .toolbar span,
+  .chatHeader span {
+    font-size: 0.78rem;
+  }
+
+  .healthPill {
+    justify-self: end;
+    max-width: 46vw;
+    min-height: 40px;
+    padding: 8px 9px;
+    white-space: nowrap;
+  }
+
+  .healthPill span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .metrics {
+    display: none;
+  }
+
+  .selectedBox {
+    grid-column: 1 / -1;
+    min-height: 42px;
+    margin-top: 0;
+    padding: 8px 10px;
+    border-radius: 999px;
+  }
+
+  .selectedBox button {
+    min-height: 36px;
+    min-width: 72px;
+    border-radius: 999px;
+  }
+
+  .panelTabs {
+    position: fixed;
+    z-index: 50;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 4px;
+    padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+    border-top: 1px solid #d7d0c1;
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 -8px 24px rgba(54, 49, 38, 0.1);
+  }
+
+  .panelTabs button {
+    display: grid;
+    justify-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-width: 0;
+    min-height: 60px;
+    padding: 6px 4px;
+    border-radius: 14px;
+    font-size: 0.72rem;
+    line-height: 1.1;
+    text-align: center;
+  }
+
+  .panelTabs button svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .workspace {
+    display: block;
+    min-width: 0;
+    padding: 0 var(--mobile-page-padding) 16px;
+  }
+
+  .libraryPane,
+  .chatPane {
+    min-width: 0;
+    min-height: calc(100vh - var(--mobile-header-height) - var(--mobile-nav-height) - 20px);
+    min-height: calc(var(--mobile-viewport-height, 100vh) - var(--mobile-header-height) - var(--mobile-nav-height) - 20px);
+    border-radius: var(--mobile-card-radius);
+  }
+
+  .libraryPane {
+    margin-bottom: 12px;
+  }
+
+  .toolbar,
+  .chatHeader {
+    position: sticky;
+    top: calc(var(--mobile-header-height) + env(safe-area-inset-top));
+    z-index: 12;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+    border-radius: var(--mobile-card-radius) var(--mobile-card-radius) 0 0;
+    background: rgba(255, 254, 250, 0.98);
+  }
+
+  .toolbarActions,
+  .briefHeaderActions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .notice {
+    margin: 10px 12px 0;
+    border-radius: var(--mobile-card-radius);
+  }
+
+  .bookList,
+  .messageStack,
+  .briefStack,
+  .importGrid,
+  .settingsForm,
+  .synthesisGrid {
+    padding: var(--mobile-page-padding);
+  }
+
+  .bookList,
+  .messageStack,
+  .briefStack {
+    overflow: visible;
+  }
+
+  .bookRow {
+    grid-template-columns: var(--tap-target) minmax(0, 1fr);
+    gap: 10px 12px;
+    align-items: start;
+    padding: 12px;
+    border-radius: var(--mobile-card-radius);
+  }
+
+  .bookTitle {
+    display: -webkit-box;
+    overflow: hidden;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .bookSub {
+    gap: 6px;
+  }
+
+  .bookStats {
+    grid-column: 1 / -1;
+    justify-content: space-between;
+    width: 100%;
+    padding-top: 10px;
+    border-top: 1px solid #e6e0d6;
+  }
+
+  .statusBadge {
+    min-height: 28px;
+    padding: 4px 8px;
+  }
+
+  .attachButton input {
+    min-height: var(--tap-target);
+  }
+
+  .emptyState,
+  .chatEmpty,
+  .compactEmpty {
+    min-height: 150px;
+    border-radius: var(--mobile-card-radius);
+  }
+
+  .importGrid,
+  .synthesisGrid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .toolPanel,
+  .synthesisForm,
+  .historyPanel {
+    border-radius: var(--mobile-card-radius);
+  }
+
+  .toolPanel input[type="file"]::file-selector-button {
+    min-height: 44px;
+    margin-right: 10px;
+    padding: 0 12px;
+    border: 1px solid #b8cec7;
+    border-radius: 10px;
+    color: #315b52;
+    background: #eff7f3;
+  }
+
+  .formRow,
+  .briefFocusGrid {
+    grid-template-columns: 1fr;
+  }
+
+  textarea {
+    min-height: 160px;
+  }
+
+  .historyPanel,
+  .attemptHistory,
+  .briefSources {
+    max-height: 45vh;
+    overflow: auto;
+  }
+
+  .synthesisRun {
+    grid-template-columns: minmax(0, 1fr) var(--tap-target);
+    border-radius: var(--mobile-card-radius);
+  }
+
+  .synthesisRun strong,
+  .synthesisRun span,
+  .briefGlance strong {
+    white-space: normal;
+  }
+
+  .buildSteps {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .briefArtifact {
+    padding: 14px;
+    border-radius: var(--mobile-card-radius);
+  }
+
+  .takeawayCallout p,
+  .briefCompactSection p,
+  .briefSection p,
+  .message p {
+    font-size: 0.98rem;
+    line-height: 1.6;
+  }
+
+  .messageStack {
+    min-height: 42vh;
+    padding-bottom: 96px;
+  }
+
+  .message {
+    width: 100%;
+    border-radius: var(--mobile-card-radius);
+  }
+
+  .chatComposer {
+    position: sticky;
+    z-index: 20;
+    bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom));
+    grid-template-columns: minmax(0, 1fr) var(--tap-target);
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 0 0 var(--mobile-card-radius) var(--mobile-card-radius);
+    box-shadow: 0 -8px 18px rgba(54, 49, 38, 0.08);
+  }
+
+  .sources {
+    gap: 10px;
+  }
+
+  .source {
+    padding: 10px;
+    border: 1px solid #e1dace;
+    border-radius: var(--mobile-card-radius);
+    background: #fbfaf6;
+  }
+
+  .source p {
+    display: -webkit-box;
+    overflow: hidden;
+    margin-top: 4px;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+  }
+
+  .source:focus-within p,
+  .source:hover p {
+    display: block;
+    overflow: visible;
+  }
+
+  .quizCard,
+  .quizResult,
+  .attemptHistory {
+    border-radius: var(--mobile-card-radius);
+  }
+
+  .quizActions {
+    position: sticky;
+    bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom));
+    z-index: 18;
+    margin: 0 -16px -16px;
+    padding: 10px 16px;
+    border-top: 1px solid #e3ded3;
+    background: rgba(255, 254, 250, 0.98);
+  }
+
+  .quizActions .primaryButton,
+  .quizActions .secondaryButton {
+    flex: 1;
+  }
+
+  .choiceGrid button {
+    grid-template-columns: 40px minmax(0, 1fr);
+    min-height: 60px;
+    border-radius: var(--mobile-card-radius);
+  }
+
+  .reviewList section {
+    border-radius: var(--mobile-card-radius);
+  }
+}
+
+@media (max-width: 420px) {
+  :root {
+    --mobile-header-height: 124px;
+    --mobile-page-padding: 10px;
+  }
+
+  .brand span,
+  .healthPill svg {
+    display: none;
+  }
+
+  .healthPill {
+    max-width: 42vw;
+    font-size: 0.76rem;
+  }
+
+  .selectedBox {
+    font-size: 0.8rem;
+  }
+
+  .panelTabs button {
+    min-height: 58px;
+    font-size: 0.68rem;
+  }
+
+  .toolbar,
+  .chatHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbarActions,
+  .briefHeaderActions {
+    justify-content: stretch;
+  }
+
+  .toolbarActions > *,
+  .briefHeaderActions > * {
+    flex: 1;
+  }
+
+  .bookRow {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .bookSelect,
+  .iconButton,
+  .attachButton {
+    min-width: 44px;
+    width: 44px;
+    height: 44px;
+  }
+
+  .chatComposer {
+    grid-template-columns: minmax(0, 1fr) 44px;
+  }
+
+  .buildSteps {
+    grid-template-columns: 1fr;
+  }
+
+  .quizActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .source p {
+    -webkit-line-clamp: 3;
+  }
+
+  .iconButton:hover,
+  .primaryButton:hover,
+  .secondaryButton:hover,
+  .panelTabs button:hover,
+  .choiceGrid button:hover {
+    transform: none;
+  }
+}
+
+/* Phase 2: make Ask a first-class, one-surface workflow. */
+.appShell[data-panel="ask"] .workspace {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.appShell[data-panel="ask"] .libraryPane {
+  display: none;
+}
+
+.appShell[data-panel="ask"] .chatPane {
+  min-height: calc(100vh - 36px);
+}
+
+@media (max-width: 780px) {
+  .appShell[data-panel="ask"] {
+    --mobile-header-height: 78px;
+  }
+
+  .appShell[data-panel="ask"] .selectedBox,
+  .appShell[data-panel="ask"] .metrics {
+    display: none;
+  }
+
+  .appShell[data-panel="ask"] .workspace {
+    padding-top: 0;
+  }
+
+  .appShell[data-panel="ask"] .chatPane {
+    min-height: calc(var(--mobile-viewport-height, 100vh) - var(--mobile-header-height) - var(--mobile-nav-height));
+  }
+
+  .appShell[data-panel="ask"] .messageStack {
+    min-height: calc(var(--mobile-viewport-height, 100vh) - var(--mobile-header-height) - var(--mobile-nav-height) - 120px);
+  }
+
+  .appShell[data-panel="ask"] .chatHeader {
+    top: calc(var(--mobile-header-height) + env(safe-area-inset-top));
+  }
+}
+
+@media (max-width: 420px) {
+  .appShell[data-panel="ask"] {
+    --mobile-header-height: 70px;
+  }
+}
+
+@media (max-width: 780px) {
+  .appShell[data-panel="library"] .chatPane,
+  .appShell[data-panel="import"] .chatPane,
+  .appShell[data-panel="settings"] .chatPane {
+    display: none;
+  }
+}

@@ -37,7 +37,7 @@ import type {
   SynthesisRun
 } from "./types";
 
-type Panel = "library" | "import" | "synthesis" | "mastery" | "settings";
+type Panel = "library" | "ask" | "import" | "synthesis" | "mastery" | "settings";
 
 interface SynthesisFormState {
   objective: string;
@@ -403,10 +403,16 @@ export default function App() {
     );
   }
 
+
+  function openPanel(nextPanel: Panel) {
+    window.location.hash = nextPanel === "library" ? "" : nextPanel;
+    setPanel(nextPanel);
+  }
+
   const busyLabel = busy ? busy[0].toUpperCase() + busy.slice(1) : null;
 
   return (
-    <div className="appShell">
+    <div className="appShell" data-panel={panel}>
       <aside className="sidebar">
         <div className="brand">
           <div className="brandMark">
@@ -424,23 +430,28 @@ export default function App() {
         </div>
 
         <nav className="panelTabs" aria-label="Primary panels">
-          <button className={panel === "library" ? "active" : ""} onClick={() => setPanel("library")}>
+          <button className={panel === "library" ? "active" : ""} onClick={() => openPanel("library")}>
             <Library size={16} />
             Library
           </button>
-          <button className={panel === "import" ? "active" : ""} onClick={() => setPanel("import")}>
+          <button className={panel === "ask" ? "active" : ""} onClick={() => openPanel("ask")}>
+            <MessageSquare size={16} />
+            Ask
+          </button>
+
+          <button className={panel === "import" ? "active" : ""} onClick={() => openPanel("import")}>
             <Upload size={16} />
             Import
           </button>
-          <button className={panel === "synthesis" ? "active" : ""} onClick={() => setPanel("synthesis")}>
+          <button className={panel === "synthesis" ? "active" : ""} onClick={() => openPanel("synthesis")}>
             <ClipboardList size={16} />
             Synthesis
           </button>
-          <button className={panel === "mastery" ? "active" : ""} onClick={() => setPanel("mastery")}>
+          <button className={panel === "mastery" ? "active" : ""} onClick={() => openPanel("mastery")}>
             <CheckCircle2 size={16} />
             Mastery
           </button>
-          <button className={panel === "settings" ? "active" : ""} onClick={() => setPanel("settings")}>
+          <button className={panel === "settings" ? "active" : ""} onClick={() => openPanel("settings")}>
             <Settings size={16} />
             Settings
           </button>
@@ -1357,6 +1368,7 @@ function BriefSectionView({ section, subtle = false }: { section: { title: strin
 }
 
 function panelTitle(panel: Panel) {
+  if (panel === "ask") return "Ask";
   if (panel === "import") return "Import";
   if (panel === "synthesis") return "Synthesis";
   if (panel === "mastery") return "Mastery";
@@ -1366,7 +1378,7 @@ function panelTitle(panel: Panel) {
 
 function initialPanel(): Panel {
   const hash = window.location.hash.replace("#", "");
-  return hash === "import" || hash === "synthesis" || hash === "mastery" || hash === "settings" ? hash : "library";
+  return hash === "ask" || hash === "import" || hash === "synthesis" || hash === "mastery" || hash === "settings" ? hash : "library";
 }
 
 function parseDirectUrls(value: string): Array<{ title?: string; url: string }> {
